@@ -1,6 +1,7 @@
-import { Link, useLocation } from "react-router-dom";
-import { Brain, LayoutDashboard, Calculator, MessageCircle, BookOpen, Calendar, History, Settings, CreditCard, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Brain, LayoutDashboard, Calculator, MessageCircle, BookOpen, Calendar, History, Settings, CreditCard, LogOut, ChevronLeft, ChevronRight, Shield } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -15,7 +16,14 @@ const navItems = [
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
+  const { signOut, isAdmin, profile } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -37,15 +45,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+          {isAdmin && (
+            <Link to="/admin" className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${location.pathname === "/admin" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"} ${collapsed ? "justify-center" : ""}`}>
+              <Shield className="w-5 h-5 shrink-0" />
+              {!collapsed && <span>Admin</span>}
+            </Link>
+          )}
         </nav>
         <div className="p-3 border-t border-border space-y-1">
           <button onClick={() => setCollapsed(!collapsed)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground w-full transition-colors">
             {collapsed ? <ChevronRight className="w-5 h-5" /> : <><ChevronLeft className="w-5 h-5" /><span>Minimizar</span></>}
           </button>
-          <Link to="/" className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground ${collapsed ? "justify-center" : ""}`}>
+          <button onClick={handleSignOut} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground w-full ${collapsed ? "justify-center" : ""}`}>
             <LogOut className="w-5 h-5 shrink-0" />
             {!collapsed && <span>Sair</span>}
-          </Link>
+          </button>
         </div>
       </aside>
 

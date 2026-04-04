@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Link } from "react-router-dom";
-import { Brain, Eye, EyeOff, ChevronRight, ChevronLeft, CheckCircle2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Brain, Eye, EyeOff, ChevronRight, ChevronLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const years = ["7º ano", "8º ano", "9º ano", "10º ano", "11º ano", "12º ano"];
 const subjects = ["Matemática", "Física", "Química"];
@@ -13,12 +15,59 @@ const frequencies = ["Todos os dias", "3-4 vezes por semana", "1-2 vezes por sem
 export default function SignupPage() {
   const [step, setStep] = useState(0);
   const [showPw, setShowPw] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [selectedGoal, setSelectedGoal] = useState("");
   const [selectedFreq, setSelectedFreq] = useState("");
+  const navigate = useNavigate();
 
   const toggleSubject = (s: string) => setSelectedSubjects(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+
+  const handleSignup = async () => {
+    if (password.length < 6) {
+      toast.error("A palavra-passe deve ter pelo menos 6 caracteres.");
+      return;
+    }
+    setLoading(true);
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { nome: name },
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    if (data.user) {
+      setStep(1);
+    }
+  };
+
+  const saveOnboarding = async () => {
+    setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase
+        .from("profiles")
+        .update({
+          ano_escolar: selectedYear,
+          disciplinas_favoritas: selectedSubjects,
+          objetivo_estudo: selectedGoal,
+          frequencia_estudo: selectedFreq,
+        })
+        .eq("user_id", user.id);
+    }
+    setLoading(false);
+    navigate("/dashboard");
+  };
 
   if (step === 0) {
     return (
@@ -37,22 +86,23 @@ export default function SignupPage() {
           <div className="bg-card rounded-xl p-8 shadow-card border border-border/50 space-y-4">
             <div>
               <Label htmlFor="name">Nome</Label>
-              <Input id="name" placeholder="O teu nome" className="mt-1.5" />
+              <Input id="name" placeholder="O teu nome" className="mt-1.5" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div>
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="o.teu@email.com" className="mt-1.5" />
+              <Input id="email" type="email" placeholder="o.teu@email.com" className="mt-1.5" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div>
               <Label htmlFor="password">Palavra-passe</Label>
               <div className="relative mt-1.5">
-                <Input id="password" type={showPw ? "text" : "password"} placeholder="Mínimo 8 caracteres" />
+                <Input id="password" type={showPw ? "text" : "password"} placeholder="Mínimo 6 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} />
                 <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowPw(!showPw)}>
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
-            <Button variant="hero" className="w-full" onClick={() => setStep(1)}>
+            <Button variant="hero" className="w-full" onClick={handleSignup} disabled={loading}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Criar conta <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
@@ -141,8 +191,9 @@ export default function SignupPage() {
               <ChevronLeft className="w-4 h-4" /> Voltar
             </Button>
             {isLast ? (
-              <Button variant="hero" className="flex-1" asChild>
-                <Link to="/dashboard">Começar a aprender!</Link>
+              <Button variant="hero" className="flex-1" onClick={saveOnboarding} disabled={loading}>
+                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Começar a aprender!
               </Button>
             ) : (
               <Button variant="hero" className="flex-1" onClick={() => setStep(step + 1)} disabled={!currentStep.valid}>

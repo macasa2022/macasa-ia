@@ -4,10 +4,72 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { User, BookOpen, Bell, Palette, Shield } from "lucide-react";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("perfil");
+  const { profile, user, refreshProfile } = useAuth();
+  const [saving, setSaving] = useState(false);
+
+  // Profile fields
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [anoEscolar, setAnoEscolar] = useState("7º");
+
+  // Preferences fields
+  const [estiloExplicacao, setEstiloExplicacao] = useState("Simples e direto");
+  const [disciplinas, setDisciplinas] = useState<string[]>([]);
+
+  const allDisciplinas = ["Matemática", "Física", "Química", "Biologia", "Português", "Inglês", "História", "Geografia"];
+
+  useEffect(() => {
+    if (profile) {
+      setNome(profile.nome || "");
+      setEmail(profile.email || "");
+      setAnoEscolar(profile.ano_escolar || "7º");
+      setEstiloExplicacao(profile.estilo_explicacao || "Simples e direto");
+      setDisciplinas(profile.disciplinas_favoritas || []);
+    }
+  }, [profile]);
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    setSaving(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ nome, email, ano_escolar: anoEscolar, updated_at: new Date().toISOString() })
+      .eq("user_id", user.id);
+    setSaving(false);
+    if (error) {
+      toast.error("Erro ao guardar perfil.");
+    } else {
+      toast.success("Perfil guardado com sucesso!");
+      await refreshProfile();
+    }
+  };
+
+  const handleSavePreferences = async () => {
+    if (!user) return;
+    setSaving(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ estilo_explicacao: estiloExplicacao, disciplinas_favoritas: disciplinas, updated_at: new Date().toISOString() })
+      .eq("user_id", user.id);
+    setSaving(false);
+    if (error) {
+      toast.error("Erro ao guardar preferências.");
+    } else {
+      toast.success("Preferências guardadas com sucesso!");
+      await refreshProfile();
+    }
+  };
+
+  const toggleDisciplina = (d: string) => {
+    setDisciplinas(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
+  };
 
   const tabs = [
     { id: "perfil", label: "Perfil", icon: User },
@@ -38,26 +100,28 @@ export default function SettingsPage() {
             <div className="space-y-4">
               <div>
                 <Label>Nome</Label>
-                <Input defaultValue="Miguel Santos" className="mt-1.5" />
+                <Input value={nome} onChange={e => setNome(e.target.value)} className="mt-1.5" />
               </div>
               <div>
                 <Label>Email</Label>
-                <Input defaultValue="miguel@email.com" className="mt-1.5" />
+                <Input value={email} onChange={e => setEmail(e.target.value)} className="mt-1.5" />
               </div>
               <div>
                 <Label>Ano escolar</Label>
-                <select className="w-full mt-1.5 border border-border rounded-lg px-3 py-2 bg-background text-sm">
-                  {["7º", "8º", "9º", "10º", "11º", "12º"].map(y => <option key={y}>{y} ano</option>)}
+                <select value={anoEscolar} onChange={e => setAnoEscolar(e.target.value)} className="w-full mt-1.5 border border-border rounded-lg px-3 py-2 bg-background text-sm">
+                  {["7º", "8º", "9º", "10º", "11º", "12º"].map(y => <option key={y} value={y}>{y} ano</option>)}
                 </select>
               </div>
-              <Button variant="hero">Guardar alterações</Button>
+              <Button variant="hero" onClick={handleSaveProfile} disabled={saving}>
+                {saving ? "A guardar..." : "Guardar alterações"}
+              </Button>
             </div>
           )}
           {activeTab === "estudo" && (
             <div className="space-y-4">
               <div>
                 <Label>Estilo de explicação preferido</Label>
-                <select className="w-full mt-1.5 border border-border rounded-lg px-3 py-2 bg-background text-sm">
+                <select value={estiloExplicacao} onChange={e => setEstiloExplicacao(e.target.value)} className="w-full mt-1.5 border border-border rounded-lg px-3 py-2 bg-background text-sm">
                   <option>Simples e direto</option>
                   <option>Detalhado com exemplos</option>
                   <option>Formal e académico</option>
@@ -65,13 +129,15 @@ export default function SettingsPage() {
               </div>
               <div>
                 <Label>Disciplinas favoritas</Label>
-                <div className="flex gap-2 mt-1.5">
-                  {["Matemática", "Física", "Química"].map(s => (
-                    <button key={s} className="px-3 py-1.5 rounded-full text-sm border border-primary/30 bg-primary/10 text-primary">{s}</button>
+                <div className="flex flex-wrap gap-2 mt-1.5">
+                  {allDisciplinas.map(s => (
+                    <button key={s} onClick={() => toggleDisciplina(s)} className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${disciplinas.includes(s) ? "border-primary/30 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}>{s}</button>
                   ))}
                 </div>
               </div>
-              <Button variant="hero">Guardar preferências</Button>
+              <Button variant="hero" onClick={handleSavePreferences} disabled={saving}>
+                {saving ? "A guardar..." : "Guardar preferências"}
+              </Button>
             </div>
           )}
           {activeTab === "notificacoes" && (

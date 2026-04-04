@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mentor-ai`;
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };

@@ -1,5 +1,6 @@
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
 import { Calculator, MessageCircle, TrendingUp, BookOpen, Flame, Target, Clock, Sparkles, ArrowRight, Award, BarChart3 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -17,12 +18,17 @@ const recommendations = [
 ];
 
 export default function DashboardPage() {
+  const { profile } = useAuth();
+  const displayName = profile?.nome?.trim() || "";
+
   return (
     <AppLayout>
       <div className="p-6 md:p-8 max-w-7xl mx-auto">
         {/* Header */}
         <motion.div className="mb-8" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-2xl md:text-3xl font-bold mb-1">Olá, Miguel! 👋</h1>
+          <h1 className="text-2xl md:text-3xl font-bold mb-1">
+            Olá{displayName ? `, ${displayName}` : ""}! 👋
+          </h1>
           <p className="text-muted-foreground">Pronto para aprender mais hoje?</p>
         </motion.div>
 

@@ -1,6 +1,7 @@
-import { Link, useLocation } from "react-router-dom";
-import { Brain, LayoutDashboard, Calculator, MessageCircle, BookOpen, Calendar, History, Settings, CreditCard, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Brain, LayoutDashboard, Calculator, MessageCircle, BookOpen, Calendar, History, Settings, CreditCard, LogOut, ChevronLeft, ChevronRight, Shield } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },

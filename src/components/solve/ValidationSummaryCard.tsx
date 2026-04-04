@@ -1,0 +1,66 @@
+import { motion } from "framer-motion";
+import { CheckCircle, ShieldCheck, HelpCircle } from "lucide-react";
+
+type Validation = {
+  resposta_final?: string;
+  unidade?: string;
+  verificacao?: string;
+  interpretacao?: string;
+  faz_sentido?: string;
+};
+
+export default function ValidationSummaryCard({ data }: { data: Validation }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.3 }}
+      className="bg-card rounded-xl border border-border/50 shadow-card overflow-hidden"
+    >
+      <div className="p-4 border-b border-border/50 bg-green-500/5">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-5 h-5 text-green-600 dark:text-green-400" />
+          <h3 className="font-semibold text-sm">Verificação da Resposta</h3>
+        </div>
+      </div>
+
+      <div className="p-4 space-y-3">
+        {/* Final answer */}
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20">
+          <CheckCircle className="w-6 h-6 text-primary shrink-0" />
+          <div>
+            <div className="text-xs font-medium text-muted-foreground">RESPOSTA FINAL</div>
+            <div className="text-lg font-bold text-primary">
+              {data.resposta_final}
+              {data.unidade && <span className="text-sm font-normal ml-1">({data.unidade})</span>}
+            </div>
+          </div>
+        </div>
+
+        {data.verificacao && (
+          <div className="p-3 rounded-lg bg-secondary/50">
+            <div className="text-xs font-medium text-muted-foreground mb-1">✅ VERIFICAÇÃO</div>
+            <p className="text-sm">{data.verificacao}</p>
+          </div>
+        )}
+
+        {data.interpretacao && (
+          <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/20">
+            <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">💬 EM LINGUAGEM SIMPLES</div>
+            <p className="text-sm text-blue-800 dark:text-blue-300">{data.interpretacao}</p>
+          </div>
+        )}
+
+        {data.faz_sentido && (
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-green-500/5 border border-green-500/20">
+            <HelpCircle className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5" />
+            <div>
+              <div className="text-xs font-medium text-green-600 dark:text-green-400 mb-0.5">FAZ SENTIDO?</div>
+              <p className="text-sm text-green-800 dark:text-green-300">{data.faz_sentido}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}

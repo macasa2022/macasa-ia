@@ -72,8 +72,10 @@ export default function SubjectsPage() {
   const filteredYears = useMemo(() => {
     if (!s) return [];
     if (isPremium || !userYearLevel) return Object.entries(s.years);
-    return Object.entries(s.years).filter(([level]) => level === userYearLevel);
+    return Object.entries(s?.years ?? {}).filter(([level]) => level === userYearLevel);
   }, [isPremium, userYearLevel, s]);
+
+  if (!s) return null;
 
   return (
     <AppLayout>

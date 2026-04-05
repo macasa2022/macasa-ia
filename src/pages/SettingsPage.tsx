@@ -13,6 +13,7 @@ import { useTheme } from "next-themes";
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("perfil");
   const { profile, user, refreshProfile } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [saving, setSaving] = useState(false);
 
   // Profile fields

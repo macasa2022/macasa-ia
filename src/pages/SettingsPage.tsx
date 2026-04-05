@@ -138,12 +138,13 @@ export default function SettingsPage() {
                 </select>
               </div>
               <div>
-                <Label>Disciplinas favoritas</Label>
+                <Label>Disciplina favorita</Label>
                 <div className="flex flex-wrap gap-2 mt-1.5">
                   {allDisciplinas.map(s => (
                     <button key={s} onClick={() => toggleDisciplina(s)} className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${disciplinas.includes(s) ? "border-primary/30 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}>{s}</button>
                   ))}
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">Plano gratuito: podes selecionar apenas 1 disciplina.</p>
               </div>
               <Button variant="hero" onClick={handleSavePreferences} disabled={saving}>
                 {saving ? "A guardar..." : "Guardar preferências"}

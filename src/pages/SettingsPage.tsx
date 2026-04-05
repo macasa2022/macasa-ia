@@ -38,8 +38,8 @@ export default function SettingsPage() {
   const handleSaveProfile = async () => {
     if (!user) return;
     const trimmedNome = nome.trim();
-    if (!trimmedNome || trimmedNome.length < 2 || !/[a-zA-ZÀ-ÿ]/.test(trimmedNome)) {
-      toast.error("Introduz um nome válido (mínimo 2 letras).");
+    if (!trimmedNome || trimmedNome.length < 3 || !/[a-zA-ZÀ-ÿ]/.test(trimmedNome)) {
+      toast.error("Introduz um nome válido (mínimo 3 letras).");
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;

@@ -29,8 +29,8 @@ export default function SignupPage() {
 
   const handleSignup = async () => {
     const trimmedName = name.trim();
-    if (!trimmedName || trimmedName.length < 2 || !/[a-zA-ZÀ-ÿ]/.test(trimmedName)) {
-      toast.error("Introduz um nome válido (mínimo 2 letras).");
+    if (!trimmedName || trimmedName.length < 3 || !/[a-zA-ZÀ-ÿ]/.test(trimmedName)) {
+      toast.error("Introduz um nome válido (mínimo 3 letras).");
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;

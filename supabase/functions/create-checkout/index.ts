@@ -7,8 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// TODO: Replace with actual Stripe price ID after creating the product in Stripe Dashboard
-const PREMIUM_PRICE_ID = "price_REPLACE_ME";
+const PREMIUM_PRICE_ID = "price_1TIySVFe9lD6nlF4sh5D9WWP";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {

@@ -17,13 +17,13 @@ export default function SettingsPage() {
   // Profile fields
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
-  const [anoEscolar, setAnoEscolar] = useState("7º");
+  const [anoEscolar, setAnoEscolar] = useState("");
 
   // Preferences fields
   const [estiloExplicacao, setEstiloExplicacao] = useState("Simples e direto");
   const [disciplinas, setDisciplinas] = useState<string[]>([]);
 
-  const allDisciplinas = ["Matemática", "Física", "Química", "Biologia", "Português", "Inglês", "História", "Geografia"];
+  const allDisciplinas = ["Matemática", "Física", "Química"];
 
   useEffect(() => {
     if (profile) {
@@ -78,7 +78,7 @@ export default function SettingsPage() {
   };
 
   const toggleDisciplina = (d: string) => {
-    setDisciplinas(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
+    setDisciplinas([d]);
   };
 
   const tabs = [
@@ -119,7 +119,7 @@ export default function SettingsPage() {
               <div>
                 <Label>Ano escolar</Label>
                 <select value={anoEscolar} onChange={e => setAnoEscolar(e.target.value)} className="w-full mt-1.5 border border-border rounded-lg px-3 py-2 bg-background text-sm">
-                  {["7º", "8º", "9º", "10º", "11º", "12º"].map(y => <option key={y} value={y}>{y} ano</option>)}
+                  {["7º ano", "8º ano", "9º ano", "10º ano", "11º ano", "12º ano"].map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
               <Button variant="hero" onClick={handleSaveProfile} disabled={saving}>

@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useTheme } from "next-themes";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("perfil");
@@ -177,9 +178,9 @@ export default function SettingsPage() {
               <div>
                 <Label>Tema</Label>
                 <div className="flex gap-3 mt-2">
-                  <button className="px-4 py-2 rounded-lg border border-primary bg-primary/10 text-primary text-sm font-medium">Claro</button>
-                  <button className="px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-secondary">Escuro</button>
-                  <button className="px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-secondary">Sistema</button>
+                  {([["light", "Claro"], ["dark", "Escuro"], ["system", "Sistema"]] as const).map(([value, label]) => (
+                    <button key={value} onClick={() => setTheme(value)} className={`px-4 py-2 rounded-lg border text-sm font-medium ${theme === value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}>{label}</button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -188,10 +189,14 @@ export default function SettingsPage() {
             <div className="space-y-4">
               <div className="p-4 rounded-lg bg-secondary/50">
                 <div className="text-sm font-medium mb-1">Plano atual</div>
-                <div className="text-lg font-bold text-primary">Premium</div>
-                <div className="text-xs text-muted-foreground">Renova a 15 de maio de 2026</div>
+                <div className="text-lg font-bold text-primary">{isPremiumOrSchoolPlan ? "Premium" : "Gratuito"}</div>
+                {isPremiumOrSchoolPlan && <div className="text-xs text-muted-foreground">Renova a 15 de maio de 2026</div>}
               </div>
-              <Button variant="outline">Gerir subscrição</Button>
+              {isPremiumOrSchoolPlan ? (
+                <Button variant="outline">Gerir subscrição</Button>
+              ) : (
+                <Button variant="hero" onClick={() => window.location.href = "/pricing"}>Fazer upgrade</Button>
+              )}
               <Button variant="destructive" className="ml-3">Eliminar conta</Button>
             </div>
           )}

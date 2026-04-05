@@ -29,7 +29,7 @@ export default function SettingsPage() {
     if (profile) {
       setNome(profile.nome || "");
       setEmail(profile.email || "");
-      setAnoEscolar(profile.ano_escolar || "7º");
+      setAnoEscolar(profile.ano_escolar || "7º ano");
       setEstiloExplicacao(profile.estilo_explicacao || "Simples e direto");
       setDisciplinas(profile.disciplinas_favoritas || []);
     }

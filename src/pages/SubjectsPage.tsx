@@ -68,9 +68,9 @@ export default function SubjectsPage() {
   const userYearLevel = getYearLevel(profile?.ano_escolar);
 
   const s = visibleSubjects[activeSubject] || visibleSubjects[0];
-  if (!s) return null;
 
   const filteredYears = useMemo(() => {
+    if (!s) return [];
     if (isPremium || !userYearLevel) return Object.entries(s.years);
     return Object.entries(s.years).filter(([level]) => level === userYearLevel);
   }, [isPremium, userYearLevel, s]);

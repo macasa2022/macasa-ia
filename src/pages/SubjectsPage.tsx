@@ -1,7 +1,10 @@
 import AppLayout from "@/components/AppLayout";
-import { Calculator, Atom, FlaskConical, ChevronRight } from "lucide-react";
+import { Calculator, Atom, FlaskConical, ChevronRight, Lock } from "lucide-react";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 const subjectsData = [
   {
@@ -27,9 +30,53 @@ const subjectsData = [
   },
 ];
 
+function getYearLevel(anoEscolar: string | null | undefined): string | null {
+  if (!anoEscolar) return null;
+  const match = anoEscolar.match(/(\d+)/);
+  if (!match) return null;
+  const year = parseInt(match[1], 10);
+  if (year >= 7 && year <= 9) return "7º-9º";
+  if (year >= 10 && year <= 12) return "10º-12º";
+  return null;
+}
+
 export default function SubjectsPage() {
+  const { profile, user } = useAuth();
   const [activeSubject, setActiveSubject] = useState(0);
-  const s = subjectsData[activeSubject];
+
+  const userPlan = String(
+    user?.app_metadata?.plan ??
+    user?.user_metadata?.plan ??
+    user?.app_metadata?.account_type ??
+    user?.user_metadata?.account_type ??
+    ""
+  ).toLowerCase();
+  const isPremium = userPlan.includes("premium") || userPlan.includes("escola") || userPlan.includes("school");
+
+  const userDisciplinas = profile?.disciplinas_favoritas?.filter(d =>
+    subjectsData.some(s => s.name === d)
+  ) || [];
+
+  const visibleSubjects = useMemo(() => {
+    if (isPremium) return subjectsData;
+    if (userDisciplinas.length > 0) {
+      return subjectsData.filter(s => userDisciplinas.includes(s.name));
+    }
+    return subjectsData;
+  }, [isPremium, userDisciplinas]);
+
+  const userYearLevel = getYearLevel(profile?.ano_escolar);
+
+  const s = visibleSubjects[activeSubject] || visibleSubjects[0];
+
+  const filteredYears = useMemo(() => {
+    if (!s) return [];
+    if (isPremium || !userYearLevel) return Object.entries(s.years);
+    return Object.entries(s?.years ?? {}).filter(([level]) => level === userYearLevel);
+  }, [isPremium, userYearLevel, s]);
+
+  if (!s) return null;
+
   return (
     <AppLayout>
       <div className="p-6 md:p-8 max-w-5xl mx-auto">
@@ -38,15 +85,24 @@ export default function SubjectsPage() {
           <p className="text-muted-foreground mb-6">Explora tópicos por disciplina e ano escolar.</p>
         </motion.div>
 
-        <div className="flex gap-3 mb-6">
-          {subjectsData.map((sub, i) => (
-            <button key={i} onClick={() => setActiveSubject(i)} className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${activeSubject === i ? `${sub.bg} ${sub.color} border border-current/20` : "bg-secondary text-secondary-foreground hover:bg-secondary/80"}`}>
-              <sub.icon className="w-4 h-4" /> {sub.name}
-            </button>
-          ))}
-        </div>
+        {visibleSubjects.length > 1 && (
+          <div className="flex gap-3 mb-6">
+            {visibleSubjects.map((sub, i) => (
+              <button key={i} onClick={() => setActiveSubject(i)} className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${activeSubject === i ? `${sub.bg} ${sub.color} border border-current/20` : "bg-secondary text-secondary-foreground hover:bg-secondary/80"}`}>
+                <sub.icon className="w-4 h-4" /> {sub.name}
+              </button>
+            ))}
+          </div>
+        )}
 
-        {Object.entries(s.years).map(([level, topics]) => (
+        {visibleSubjects.length === 1 && (
+          <div className="flex items-center gap-2 mb-6">
+            <s.icon className={`w-5 h-5 ${s.color}`} />
+            <span className="font-semibold text-lg">{s.name}</span>
+          </div>
+        )}
+
+        {filteredYears.map(([level, topics]) => (
           <div key={level} className="mb-6">
             <h2 className="font-semibold text-lg mb-3 flex items-center gap-2">
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${s.bg} ${s.color}`}>{level}</span>
@@ -63,6 +119,16 @@ export default function SubjectsPage() {
             </div>
           </div>
         ))}
+
+        {!isPremium && (
+          <motion.div className="mt-8 p-6 bg-card rounded-xl border border-border/50 text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <Lock className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground mb-3">Queres aceder a todas as disciplinas e níveis? Faz upgrade para Premium.</p>
+            <Button variant="hero" asChild>
+              <Link to="/pricing">Ver planos</Link>
+            </Button>
+          </motion.div>
+        )}
       </div>
     </AppLayout>
   );

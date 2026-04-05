@@ -25,7 +25,7 @@ export default function SignupPage() {
   const [selectedFreq, setSelectedFreq] = useState("");
   const navigate = useNavigate();
 
-  const toggleSubject = (s: string) => setSelectedSubjects(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+  const toggleSubject = (s: string) => setSelectedSubjects(prev => prev.includes(s) ? prev.filter(x => x !== s) : [s]);
 
   const handleSignup = async () => {
     const trimmedName = name.trim();

@@ -24,6 +24,17 @@ export default function SettingsPage() {
   const [disciplinas, setDisciplinas] = useState<string[]>([]);
 
   const allDisciplinas = ["Matemática", "Física", "Química"];
+  const userPlan = String(
+    user?.app_metadata?.plan ??
+    user?.user_metadata?.plan ??
+    user?.app_metadata?.account_type ??
+    user?.user_metadata?.account_type ??
+    ""
+  ).toLowerCase();
+  const isPremiumOrSchoolPlan =
+    userPlan.includes("premium") || userPlan.includes("escola") || userPlan.includes("school");
+  const disciplinasSelecionadas = disciplinas.filter((disciplina) => allDisciplinas.includes(disciplina));
+  const disciplinasVisiveis = isPremiumOrSchoolPlan ? allDisciplinas : disciplinasSelecionadas;
 
   useEffect(() => {
     if (profile) {
@@ -31,7 +42,7 @@ export default function SettingsPage() {
       setEmail(profile.email || "");
       setAnoEscolar(profile.ano_escolar || "7º ano");
       setEstiloExplicacao(profile.estilo_explicacao || "Simples e direto");
-      setDisciplinas(profile.disciplinas_favoritas || []);
+      setDisciplinas((profile.disciplinas_favoritas || []).filter((disciplina) => allDisciplinas.includes(disciplina)));
     }
   }, [profile]);
 
@@ -138,13 +149,13 @@ export default function SettingsPage() {
                 </select>
               </div>
               <div>
-                <Label>Disciplina favorita</Label>
+                <Label>{isPremiumOrSchoolPlan ? "Disciplinas" : "Disciplina escolhida"}</Label>
                 <div className="flex flex-wrap gap-2 mt-1.5">
-                  {allDisciplinas.map(s => (
+                  {disciplinasVisiveis.map(s => (
                     <button key={s} onClick={() => toggleDisciplina(s)} className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${disciplinas.includes(s) ? "border-primary/30 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}>{s}</button>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Plano gratuito: podes selecionar apenas 1 disciplina.</p>
+                {!isPremiumOrSchoolPlan && <p className="text-xs text-muted-foreground mt-1">Plano gratuito: é mostrada apenas a disciplina escolhida no registo.</p>}
               </div>
               <Button variant="hero" onClick={handleSavePreferences} disabled={saving}>
                 {saving ? "A guardar..." : "Guardar preferências"}

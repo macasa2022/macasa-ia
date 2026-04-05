@@ -37,10 +37,20 @@ export default function SettingsPage() {
 
   const handleSaveProfile = async () => {
     if (!user) return;
+    const trimmedNome = nome.trim();
+    if (!trimmedNome || trimmedNome.length < 2 || !/[a-zA-ZÀ-ÿ]/.test(trimmedNome)) {
+      toast.error("Introduz um nome válido (mínimo 2 letras).");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (!emailRegex.test(email.trim())) {
+      toast.error("Introduz um email válido.");
+      return;
+    }
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ nome, email, ano_escolar: anoEscolar, updated_at: new Date().toISOString() })
+      .update({ nome: trimmedNome, email: email.trim(), ano_escolar: anoEscolar, updated_at: new Date().toISOString() })
       .eq("user_id", user.id);
     setSaving(false);
     if (error) {

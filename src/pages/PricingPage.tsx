@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const plans = [
   {
@@ -23,6 +25,16 @@ const plans = [
 ];
 
 export default function PricingPage() {
+  const { user } = useAuth();
+
+  const handleUpgradeClick = (planName: string) => {
+    if (planName === "Escola") {
+      toast.info("Contacta-nos para saber mais sobre o plano Escola.");
+      return;
+    }
+    toast.info("O sistema de pagamentos será disponibilizado em breve. Fica atento!");
+  };
+
   return (
     <AppLayout>
       <div className="p-6 md:p-8 max-w-5xl mx-auto">
@@ -45,9 +57,15 @@ export default function PricingPage() {
                   <li key={j} className="flex items-center gap-2 text-sm"><CheckCircle2 className="w-4 h-4 text-primary shrink-0" /> {f}</li>
                 ))}
               </ul>
-              <Button variant={p.popular ? "hero" : "outline"} className="w-full" asChild>
-                <Link to="/signup">{p.popular ? "Começar Premium" : "Escolher plano"}</Link>
-              </Button>
+              {user ? (
+                <Button variant={p.popular ? "hero" : "outline"} className="w-full" onClick={() => handleUpgradeClick(p.name)}>
+                  {p.popular ? "Começar Premium" : p.name === "Escola" ? "Contactar" : "Plano atual"}
+                </Button>
+              ) : (
+                <Button variant={p.popular ? "hero" : "outline"} className="w-full" asChild>
+                  <Link to="/signup">{p.popular ? "Começar Premium" : "Escolher plano"}</Link>
+                </Button>
+              )}
             </motion.div>
           ))}
         </div>

@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
 
 type Profile = {
   id: string;
@@ -21,9 +20,12 @@ type AuthContextType = {
   user: User | null;
   profile: Profile | null;
   isAdmin: boolean;
+  isPremium: boolean;
+  subscriptionEnd: string | null;
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  checkSubscription: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -31,9 +33,12 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   isAdmin: false,
+  isPremium: false,
+  subscriptionEnd: null,
   loading: true,
   signOut: async () => {},
   refreshProfile: async () => {},
+  checkSubscription: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -43,6 +48,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
+  const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
@@ -62,10 +69,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAdmin(!!data);
   };
 
+  const checkSubscription = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("check-subscription");
+      if (error) {
+        console.error("Error checking subscription:", error);
+        return;
+      }
+      setIsPremium(!!data?.subscribed);
+      setSubscriptionEnd(data?.subscription_end || null);
+    } catch (err) {
+      console.error("Error checking subscription:", err);
+    }
+  };
+
   const refreshProfile = async () => {
     if (user) {
       await fetchProfile(user.id);
       await checkAdmin(user.id);
+      await checkSubscription();
     }
   };
 
@@ -78,11 +100,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setTimeout(async () => {
             await fetchProfile(session.user.id);
             await checkAdmin(session.user.id);
+            await checkSubscription();
             setLoading(false);
           }, 0);
         } else {
           setProfile(null);
           setIsAdmin(false);
+          setIsPremium(false);
+          setSubscriptionEnd(null);
           setLoading(false);
         }
       }
@@ -94,6 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         fetchProfile(session.user.id);
         checkAdmin(session.user.id);
+        checkSubscription();
       }
       setLoading(false);
     });
@@ -107,10 +133,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setProfile(null);
     setIsAdmin(false);
+    setIsPremium(false);
+    setSubscriptionEnd(null);
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, isAdmin, loading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ session, user, profile, isAdmin, isPremium, subscriptionEnd, loading, signOut, refreshProfile, checkSubscription }}>
       {children}
     </AuthContext.Provider>
   );

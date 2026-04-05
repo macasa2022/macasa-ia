@@ -1,10 +1,13 @@
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { ContactFormDialog } from "@/components/ContactFormDialog";
 
 const plans = [
   {
@@ -25,14 +28,47 @@ const plans = [
 ];
 
 export default function PricingPage() {
-  const { user } = useAuth();
+  const { user, isPremium } = useAuth();
+  const [loadingCheckout, setLoadingCheckout] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
 
-  const handleUpgradeClick = (planName: string) => {
+  const handleUpgradeClick = async (planName: string) => {
     if (planName === "Escola") {
-      toast.info("Contacta-nos para saber mais sobre o plano Escola.");
+      setContactOpen(true);
       return;
     }
-    toast.info("O sistema de pagamentos será disponibilizado em breve. Fica atento!");
+    if (planName === "Gratuito") return;
+
+    if (!user) {
+      toast.info("Cria uma conta primeiro para fazer upgrade.");
+      return;
+    }
+
+    setLoadingCheckout(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-checkout");
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao iniciar checkout.");
+    } finally {
+      setLoadingCheckout(false);
+    }
+  };
+
+  const getButtonLabel = (planName: string) => {
+    if (planName === "Escola") return "Contactar";
+    if (planName === "Gratuito") return isPremium ? "Gratuito" : "Plano atual";
+    if (planName === "Premium") return isPremium ? "Plano atual" : "Começar Premium";
+    return "Escolher";
+  };
+
+  const isCurrentPlan = (planName: string) => {
+    if (planName === "Premium" && isPremium) return true;
+    if (planName === "Gratuito" && !isPremium) return true;
+    return false;
   };
 
   return (
@@ -46,6 +82,7 @@ export default function PricingPage() {
           {plans.map((p, i) => (
             <motion.div key={i} className={`bg-card rounded-xl p-8 border ${p.popular ? "border-primary shadow-glow" : "border-border/50 shadow-card"} relative`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
               {p.popular && <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-hero text-primary-foreground text-xs font-bold rounded-full">Mais popular</div>}
+              {isCurrentPlan(p.name) && <div className="absolute top-4 right-4 text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">O teu plano</div>}
               <h3 className="font-bold text-xl mb-1">{p.name}</h3>
               <div className="flex items-baseline gap-1 mb-2">
                 <span className="text-4xl font-extrabold">{p.price}</span>
@@ -58,18 +95,25 @@ export default function PricingPage() {
                 ))}
               </ul>
               {user ? (
-                <Button variant={p.popular ? "hero" : "outline"} className="w-full" onClick={() => handleUpgradeClick(p.name)}>
-                  {p.popular ? "Começar Premium" : p.name === "Escola" ? "Contactar" : "Plano atual"}
+                <Button
+                  variant={p.popular && !isPremium ? "hero" : "outline"}
+                  className="w-full"
+                  onClick={() => handleUpgradeClick(p.name)}
+                  disabled={isCurrentPlan(p.name) || loadingCheckout}
+                >
+                  {loadingCheckout && p.name === "Premium" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  {getButtonLabel(p.name)}
                 </Button>
               ) : (
                 <Button variant={p.popular ? "hero" : "outline"} className="w-full" asChild>
-                  <Link to="/signup">{p.popular ? "Começar Premium" : "Escolher plano"}</Link>
+                  <Link to="/signup">{p.popular ? "Começar Premium" : p.name === "Escola" ? "Contactar" : "Escolher plano"}</Link>
                 </Button>
               )}
             </motion.div>
           ))}
         </div>
       </div>
+      <ContactFormDialog open={contactOpen} onOpenChange={setContactOpen} />
     </AppLayout>
   );
 }

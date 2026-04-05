@@ -2,7 +2,7 @@ import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, BookOpen, Bell, Palette, Shield } from "lucide-react";
+import { User, BookOpen, Bell, Palette, Shield, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,31 +12,20 @@ import { useTheme } from "next-themes";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("perfil");
-  const { profile, user, refreshProfile } = useAuth();
+  const { profile, user, refreshProfile, isPremium, subscriptionEnd } = useAuth();
   const { theme, setTheme } = useTheme();
   const [saving, setSaving] = useState(false);
+  const [loadingPortal, setLoadingPortal] = useState(false);
 
-  // Profile fields
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [anoEscolar, setAnoEscolar] = useState("");
-
-  // Preferences fields
   const [estiloExplicacao, setEstiloExplicacao] = useState("Simples e direto");
   const [disciplinas, setDisciplinas] = useState<string[]>([]);
 
   const allDisciplinas = ["Matemática", "Física", "Química"];
-  const userPlan = String(
-    user?.app_metadata?.plan ??
-    user?.user_metadata?.plan ??
-    user?.app_metadata?.account_type ??
-    user?.user_metadata?.account_type ??
-    ""
-  ).toLowerCase();
-  const isPremiumOrSchoolPlan =
-    userPlan.includes("premium") || userPlan.includes("escola") || userPlan.includes("school");
-  const disciplinasSelecionadas = disciplinas.filter((disciplina) => allDisciplinas.includes(disciplina));
-  const disciplinasVisiveis = isPremiumOrSchoolPlan ? allDisciplinas : disciplinasSelecionadas;
+  const disciplinasSelecionadas = disciplinas.filter((d) => allDisciplinas.includes(d));
+  const disciplinasVisiveis = isPremium ? allDisciplinas : disciplinasSelecionadas;
 
   useEffect(() => {
     if (profile) {
@@ -44,7 +33,7 @@ export default function SettingsPage() {
       setEmail(profile.email || "");
       setAnoEscolar(profile.ano_escolar || "7º ano");
       setEstiloExplicacao(profile.estilo_explicacao || "Simples e direto");
-      setDisciplinas((profile.disciplinas_favoritas || []).filter((disciplina) => allDisciplinas.includes(disciplina)));
+      setDisciplinas((profile.disciplinas_favoritas || []).filter((d) => allDisciplinas.includes(d)));
     }
   }, [profile]);
 
@@ -90,8 +79,28 @@ export default function SettingsPage() {
     }
   };
 
+  const handleManageSubscription = async () => {
+    setLoadingPortal(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("customer-portal");
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao abrir gestão de subscrição.");
+    } finally {
+      setLoadingPortal(false);
+    }
+  };
+
   const toggleDisciplina = (d: string) => {
     setDisciplinas([d]);
+  };
+
+  const formatDate = (iso: string | null) => {
+    if (!iso) return "";
+    return new Date(iso).toLocaleDateString("pt-PT", { day: "numeric", month: "long", year: "numeric" });
   };
 
   const tabs = [
@@ -151,13 +160,13 @@ export default function SettingsPage() {
                 </select>
               </div>
               <div>
-                <Label>{isPremiumOrSchoolPlan ? "Disciplinas" : "Disciplina escolhida"}</Label>
+                <Label>{isPremium ? "Disciplinas" : "Disciplina escolhida"}</Label>
                 <div className="flex flex-wrap gap-2 mt-1.5">
                   {disciplinasVisiveis.map(s => (
                     <button key={s} onClick={() => toggleDisciplina(s)} className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${disciplinas.includes(s) ? "border-primary/30 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}>{s}</button>
                   ))}
                 </div>
-                {!isPremiumOrSchoolPlan && <p className="text-xs text-muted-foreground mt-1">Plano gratuito: é mostrada apenas a disciplina escolhida no registo.</p>}
+                {!isPremium && <p className="text-xs text-muted-foreground mt-1">Plano gratuito: é mostrada apenas a disciplina escolhida no registo.</p>}
               </div>
               <Button variant="hero" onClick={handleSavePreferences} disabled={saving}>
                 {saving ? "A guardar..." : "Guardar preferências"}
@@ -190,11 +199,16 @@ export default function SettingsPage() {
             <div className="space-y-4">
               <div className="p-4 rounded-lg bg-secondary/50">
                 <div className="text-sm font-medium mb-1">Plano atual</div>
-                <div className="text-lg font-bold text-primary">{isPremiumOrSchoolPlan ? "Premium" : "Gratuito"}</div>
-                {isPremiumOrSchoolPlan && <div className="text-xs text-muted-foreground">Renova a 15 de maio de 2026</div>}
+                <div className="text-lg font-bold text-primary">{isPremium ? "Premium" : "Gratuito"}</div>
+                {isPremium && subscriptionEnd && (
+                  <div className="text-xs text-muted-foreground">Renova a {formatDate(subscriptionEnd)}</div>
+                )}
               </div>
-              {isPremiumOrSchoolPlan ? (
-                <Button variant="outline">Gerir subscrição</Button>
+              {isPremium ? (
+                <Button variant="outline" onClick={handleManageSubscription} disabled={loadingPortal}>
+                  {loadingPortal ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Gerir subscrição
+                </Button>
               ) : (
                 <Button variant="hero" onClick={() => window.location.href = "/pricing"}>Fazer upgrade</Button>
               )}

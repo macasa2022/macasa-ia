@@ -28,6 +28,16 @@ export default function SignupPage() {
   const toggleSubject = (s: string) => setSelectedSubjects(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
 
   const handleSignup = async () => {
+    const trimmedName = name.trim();
+    if (!trimmedName || trimmedName.length < 2 || !/[a-zA-ZÀ-ÿ]/.test(trimmedName)) {
+      toast.error("Introduz um nome válido (mínimo 2 letras).");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (!emailRegex.test(email.trim())) {
+      toast.error("Introduz um email válido.");
+      return;
+    }
     if (password.length < 6) {
       toast.error("A palavra-passe deve ter pelo menos 6 caracteres.");
       return;

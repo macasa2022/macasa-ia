@@ -9,6 +9,11 @@ const corsHeaders = {
 
 const PREMIUM_PRICE_ID = "price_1TIySVFe9lD6nlF4sh5D9WWP";
 
+const logStep = (step: string, details?: any) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[ADMIN-SUBS] ${step}${detailsStr}`);
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -33,7 +38,6 @@ serve(async (req) => {
     const adminUser = userData.user;
     if (!adminUser) throw new Error("Not authenticated");
 
-    // Check admin role
     const { data: isAdmin } = await supabaseClient.rpc("has_role", {
       _user_id: adminUser.id,
       _role: "admin",
@@ -43,17 +47,16 @@ serve(async (req) => {
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const body = await req.json().catch(() => ({}));
     const { action } = body;
+    logStep("Action requested", { action });
 
-    // LIST: Get all subscription statuses for all users
+    // LIST
     if (!action || action === "list") {
-      // Get all profiles
       const { data: profiles } = await supabaseClient
         .from("profiles")
         .select("user_id, email");
 
       const subscriptionMap: Record<string, { plan: string; subscription_id: string | null; subscription_end: string | null }> = {};
 
-      // Batch check subscriptions by email
       for (const profile of (profiles || [])) {
         if (!profile.email) {
           subscriptionMap[profile.user_id] = { plan: "Gratuito", subscription_id: null, subscription_end: null };
@@ -65,13 +68,14 @@ serve(async (req) => {
             subscriptionMap[profile.user_id] = { plan: "Gratuito", subscription_id: null, subscription_end: null };
             continue;
           }
-          const subs = await stripe.subscriptions.list({
-            customer: customers.data[0].id,
-            status: "active",
-            limit: 1,
-          });
-          if (subs.data.length > 0) {
-            const sub = subs.data[0];
+          // Check both active and trialing subscriptions
+          const customerId = customers.data[0].id;
+          const [activeSubs, trialSubs] = await Promise.all([
+            stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 }),
+            stripe.subscriptions.list({ customer: customerId, status: "trialing", limit: 1 }),
+          ]);
+          const sub = activeSubs.data[0] || trialSubs.data[0];
+          if (sub) {
             subscriptionMap[profile.user_id] = {
               plan: "Premium",
               subscription_id: sub.id,
@@ -80,7 +84,8 @@ serve(async (req) => {
           } else {
             subscriptionMap[profile.user_id] = { plan: "Gratuito", subscription_id: null, subscription_end: null };
           }
-        } catch {
+        } catch (e) {
+          logStep("Error checking subscription for user", { user_id: profile.user_id, error: String(e) });
           subscriptionMap[profile.user_id] = { plan: "Gratuito", subscription_id: null, subscription_end: null };
         }
       }
@@ -90,10 +95,11 @@ serve(async (req) => {
       });
     }
 
-    // UPGRADE: Create subscription for a user
+    // UPGRADE
     if (action === "upgrade") {
       const { user_email } = body;
       if (!user_email) throw new Error("user_email required");
+      logStep("Upgrading user", { user_email });
 
       const customers = await stripe.customers.list({ email: user_email, limit: 1 });
       let customerId: string;
@@ -103,29 +109,37 @@ serve(async (req) => {
         const customer = await stripe.customers.create({ email: user_email });
         customerId = customer.id;
       }
+      logStep("Customer ID", { customerId });
 
       // Check if already has active subscription
       const existingSubs = await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 });
       if (existingSubs.data.length > 0) {
+        logStep("Already has active subscription");
         return new Response(JSON.stringify({ success: true, message: "Already premium" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      await stripe.subscriptions.create({
+      // Create subscription with payment_behavior that doesn't require immediate payment
+      const subscription = await stripe.subscriptions.create({
         customer: customerId,
         items: [{ price: PREMIUM_PRICE_ID }],
+        payment_behavior: "default_incomplete",
+        payment_settings: { save_default_payment_method: "on_subscription" },
+        trial_period_days: 36500, // ~100 years trial for admin-granted subscriptions
       });
+      logStep("Subscription created", { subscriptionId: subscription.id });
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // DOWNGRADE: Cancel subscription
+    // DOWNGRADE
     if (action === "downgrade") {
       const { subscription_id, user_email } = body;
-      
+      logStep("Downgrading", { subscription_id, user_email });
+
       if (subscription_id) {
         await stripe.subscriptions.cancel(subscription_id);
       } else if (user_email) {
@@ -133,6 +147,11 @@ serve(async (req) => {
         if (customers.data.length > 0) {
           const subs = await stripe.subscriptions.list({ customer: customers.data[0].id, status: "active" });
           for (const sub of subs.data) {
+            await stripe.subscriptions.cancel(sub.id);
+          }
+          // Also cancel trialing subscriptions
+          const trialSubs = await stripe.subscriptions.list({ customer: customers.data[0].id, status: "trialing" });
+          for (const sub of trialSubs.data) {
             await stripe.subscriptions.cancel(sub.id);
           }
         }
@@ -146,6 +165,7 @@ serve(async (req) => {
     throw new Error("Invalid action");
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    logStep("ERROR", { message: errorMessage });
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,

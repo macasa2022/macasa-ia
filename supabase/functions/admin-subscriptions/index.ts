@@ -68,13 +68,14 @@ serve(async (req) => {
             subscriptionMap[profile.user_id] = { plan: "Gratuito", subscription_id: null, subscription_end: null };
             continue;
           }
-          const subs = await stripe.subscriptions.list({
-            customer: customers.data[0].id,
-            status: "active",
-            limit: 1,
-          });
-          if (subs.data.length > 0) {
-            const sub = subs.data[0];
+          // Check both active and trialing subscriptions
+          const customerId = customers.data[0].id;
+          const [activeSubs, trialSubs] = await Promise.all([
+            stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 }),
+            stripe.subscriptions.list({ customer: customerId, status: "trialing", limit: 1 }),
+          ]);
+          const sub = activeSubs.data[0] || trialSubs.data[0];
+          if (sub) {
             subscriptionMap[profile.user_id] = {
               plan: "Premium",
               subscription_id: sub.id,

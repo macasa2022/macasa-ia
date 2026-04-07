@@ -55,9 +55,19 @@ type SolveResult = {
 };
 
 export default function SolvePage() {
-  const { profile } = useAuth();
+  const { profile, isAdmin, isPremium } = useAuth();
+  
+  // For free non-admin users, lock to their enrolled discipline
+  const enrolledSubject = (!isAdmin && !isPremium && profile?.disciplinas_favoritas?.length)
+    ? profile.disciplinas_favoritas[0]
+    : null;
+  
+  const visibleSubjects = enrolledSubject
+    ? subjects.filter(s => s.id === enrolledSubject)
+    : subjects;
+
   const [exercise, setExercise] = useState("");
-  const [subject, setSubject] = useState("");
+  const [subject, setSubject] = useState(enrolledSubject || "");
   const [year, setYear] = useState(profile?.ano_escolar || "");
   const [mode, setMode] = useState("solve_resolve");
   const [loading, setLoading] = useState(false);
@@ -128,9 +138,9 @@ export default function SolvePage() {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="flex flex-wrap gap-2 mb-4">
-          {subjects.map(s => (
-            <button key={s.id} onClick={() => setSubject(subject === s.id ? "" : s.id)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all border ${subject === s.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/30"}`}>
+          {visibleSubjects.map(s => (
+            <button key={s.id} onClick={() => !enrolledSubject && setSubject(subject === s.id ? "" : s.id)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all border ${subject === s.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/30"} ${enrolledSubject ? "cursor-default" : ""}`}>
               <s.icon className="w-4 h-4" /> {s.id}
             </button>
           ))}

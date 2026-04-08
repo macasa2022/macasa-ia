@@ -9,7 +9,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUsageLimit } from "@/hooks/use-usage-limit";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ReactMarkdown from "react-markdown";
-import ReactMarkdown from "react-markdown";
 
 const quickActions = [
   { label: "Explica mais simples", icon: Eye, msg: "Podes explicar isso de forma mais simples?" },

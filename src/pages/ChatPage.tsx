@@ -1,11 +1,14 @@
 import AppLayout from "@/components/AppLayout";
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Send, Brain, Loader2, Lightbulb, BookOpen, Eye, Sparkles, RotateCcw, MessageCircle } from "lucide-react";
+import { Send, Brain, Loader2, Lightbulb, BookOpen, Eye, Sparkles, RotateCcw, MessageCircle, AlertTriangle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { streamChat, ChatMessage } from "@/lib/ai-stream";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUsageLimit } from "@/hooks/use-usage-limit";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import ReactMarkdown from "react-markdown";
 import ReactMarkdown from "react-markdown";
 
 const quickActions = [
@@ -26,6 +29,7 @@ const starterSuggestions = [
 
 export default function ChatPage() {
   const { profile } = useAuth();
+  const { isOnCooldown, isLimited, showWarning, remaining, recordQuestion, getCooldownTimeLeft } = useUsageLimit();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -41,6 +45,17 @@ export default function ChatPage() {
   const sendMessage = async (text?: string) => {
     const content = text || input.trim();
     if (!content || isLoading) return;
+
+    if (isLimited) {
+      const { allowed, warning, remaining: rem } = await recordQuestion();
+      if (!allowed) {
+        toast.error("Atingiste o limite de perguntas. Aguarda 20 horas para continuar.");
+        return;
+      }
+      if (warning) {
+        toast.warning(`Atenção: só te restam ${rem} ocasiões para perguntar ou resolver exercícios.`);
+      }
+    }
 
     const userMsg: ChatMessage = { role: "user", content };
     const newMessages = [...messages, userMsg];
@@ -186,15 +201,33 @@ export default function ChatPage() {
 
         {/* Input */}
         <div className="p-4 border-t border-border/50 bg-card/50 backdrop-blur-sm">
-          <div className="max-w-3xl mx-auto flex gap-2 items-end">
+        <div className="max-w-3xl mx-auto">
+          {isOnCooldown && (
+            <Alert className="mb-2 border-amber-500/30 bg-amber-500/5">
+              <Clock className="h-4 w-4 text-amber-500" />
+              <AlertDescription className="text-sm">
+                Atingiste o limite de 5 perguntas. Poderás voltar a usar em <strong>{getCooldownTimeLeft()}</strong>.
+              </AlertDescription>
+            </Alert>
+          )}
+          {showWarning && (
+            <Alert className="mb-2 border-amber-500/30 bg-amber-500/5">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <AlertDescription className="text-sm">
+                Atenção: só te restam <strong>{remaining}</strong> ocasiões para perguntar ou resolver exercícios.
+              </AlertDescription>
+            </Alert>
+          )}
+          <div className="flex gap-2 items-end">
             <div className="flex-1 bg-background border border-border rounded-xl overflow-hidden">
               <textarea
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Escreve a tua dúvida aqui..."
-                className="w-full p-3 bg-transparent resize-none text-sm focus:outline-none placeholder:text-muted-foreground/50 min-h-[44px] max-h-[120px]"
+                placeholder={isOnCooldown ? "Aguarda para poder enviar novas perguntas..." : "Escreve a tua dúvida aqui..."}
+                disabled={isOnCooldown}
+                className="w-full p-3 bg-transparent resize-none text-sm focus:outline-none placeholder:text-muted-foreground/50 min-h-[44px] max-h-[120px] disabled:opacity-50"
                 rows={1}
               />
             </div>
@@ -202,12 +235,13 @@ export default function ChatPage() {
               variant="hero"
               size="icon"
               onClick={() => sendMessage()}
-              disabled={!input.trim() || isLoading}
+              disabled={!input.trim() || isLoading || isOnCooldown}
               className="h-11 w-11 shrink-0 rounded-xl"
             >
               <Send className="w-4 h-4" />
             </Button>
           </div>
+        </div>
         </div>
       </div>
     </AppLayout>

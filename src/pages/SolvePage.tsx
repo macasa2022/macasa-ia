@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { solveExercise } from "@/lib/ai-stream";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUsageLimit } from "@/hooks/use-usage-limit";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle, Clock } from "lucide-react";
 import AnalysisSummaryCard from "@/components/solve/AnalysisSummaryCard";
 import StrategyThinkingCard from "@/components/solve/StrategyThinkingCard";
 import StepByStepSolution from "@/components/solve/StepByStepSolution";
@@ -56,6 +59,7 @@ type SolveResult = {
 
 export default function SolvePage() {
   const { profile, isAdmin, isPremium } = useAuth();
+  const { isOnCooldown, isLimited, showWarning, remaining, recordQuestion, getCooldownTimeLeft } = useUsageLimit();
   
   // For free non-admin users, lock to their enrolled discipline
   const enrolledSubject = (!isAdmin && !isPremium && profile?.disciplinas_favoritas?.length)
@@ -90,6 +94,19 @@ export default function SolvePage() {
     }, 1500);
 
     try {
+      if (isLimited) {
+        const { allowed, warning, remaining: rem } = await recordQuestion();
+        if (!allowed) {
+          toast.error("Atingiste o limite de perguntas. Aguarda 20 horas para continuar.");
+          setLoading(false);
+          clearInterval(interval);
+          return;
+        }
+        if (warning) {
+          toast.warning(`Atenção: só te restam ${rem} ocasiões para perguntar ou resolver exercícios.`);
+        }
+      }
+
       const analysis = await solveExercise({ exercise: text, mode: "solve_analyze", year, subject });
       setResult(prev => ({ ...prev, analysis }));
 
@@ -170,12 +187,30 @@ export default function SolvePage() {
             className="w-full p-4 bg-transparent resize-none min-h-[120px] text-sm focus:outline-none placeholder:text-muted-foreground/50" rows={4} />
           <div className="flex items-center justify-between p-3 border-t border-border/30">
             <Button variant="outline" size="sm" className="text-xs gap-1.5"><Upload className="w-3.5 h-3.5" /> Imagem</Button>
-            <Button variant="hero" size="sm" onClick={() => handleSolve()} disabled={loading || !exercise.trim()} className="gap-1.5">
+            <Button variant="hero" size="sm" onClick={() => handleSolve()} disabled={loading || !exercise.trim() || isOnCooldown} className="gap-1.5">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               {loading ? "A analisar…" : "Analisar Exercício"}
             </Button>
           </div>
         </motion.div>
+
+        {isOnCooldown && (
+          <Alert className="mb-4 border-amber-500/30 bg-amber-500/5">
+            <Clock className="h-4 w-4 text-amber-500" />
+            <AlertDescription className="text-sm">
+              Atingiste o limite de 5 perguntas. Poderás voltar a usar em <strong>{getCooldownTimeLeft()}</strong>.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {showWarning && (
+          <Alert className="mb-4 border-amber-500/30 bg-amber-500/5">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <AlertDescription className="text-sm">
+              Atenção: só te restam <strong>{remaining}</strong> ocasiões para perguntar ou resolver exercícios.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <AnimatePresence>
           {loading && (

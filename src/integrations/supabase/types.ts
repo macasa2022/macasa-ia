@@ -89,6 +89,33 @@ export type Database = {
         }
         Relationships: []
       }
+      usage_tracking: {
+        Row: {
+          cooldown_until: string | null
+          created_at: string
+          id: string
+          question_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cooldown_until?: string | null
+          created_at?: string
+          id?: string
+          question_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cooldown_until?: string | null
+          created_at?: string
+          id?: string
+          question_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

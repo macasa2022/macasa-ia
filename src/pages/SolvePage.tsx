@@ -1,5 +1,5 @@
 import AppLayout from "@/components/AppLayout";
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Calculator, Upload, BookOpen, Atom, FlaskConical, Sparkles, Loader2, Brain, Lightbulb, GraduationCap, Dumbbell, Eye, RotateCcw, Bookmark, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -73,6 +73,14 @@ export default function SolvePage() {
   const [exercise, setExercise] = useState("");
   const [subject, setSubject] = useState(enrolledSubject || "");
   const [year, setYear] = useState(profile?.ano_escolar || "");
+
+  // Sync subject/year when profile loads asynchronously
+  useEffect(() => {
+    if (enrolledSubject) setSubject(enrolledSubject);
+  }, [enrolledSubject]);
+  useEffect(() => {
+    if (profile?.ano_escolar && !year) setYear(profile.ano_escolar);
+  }, [profile?.ano_escolar]);
   const [mode, setMode] = useState("solve_resolve");
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);

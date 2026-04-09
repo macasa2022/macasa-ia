@@ -1,6 +1,5 @@
 import AppLayout from "@/components/AppLayout";
-import { useEffect } from "react";
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Calculator, Upload, BookOpen, Atom, FlaskConical, Sparkles, Loader2, Brain, Lightbulb, GraduationCap, Dumbbell, Eye, RotateCcw, Bookmark, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";

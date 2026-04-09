@@ -6,6 +6,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Brain, Eye, EyeOff, ChevronRight, ChevronLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 const years = ["7º ano", "8º ano", "9º ano", "10º ano", "11º ano", "12º ano"];
 const subjects = ["Matemática", "Física", "Química"];
@@ -23,11 +24,14 @@ export default function SignupPage() {
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [selectedGoal, setSelectedGoal] = useState("");
   const [selectedFreq, setSelectedFreq] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
   const navigate = useNavigate();
 
   const toggleSubject = (s: string) => setSelectedSubjects(prev => prev.includes(s) ? prev.filter(x => x !== s) : [s]);
 
-  const handleSignup = async () => {
+  // Step 0: credentials form → sends OTP and goes to step "otp"
+  const handleSendOtp = async () => {
     const trimmedName = name.trim();
     if (!trimmedName || trimmedName.length < 3 || !/[a-zA-ZÀ-ÿ]/.test(trimmedName)) {
       toast.error("Introduz um nome válido (mínimo 3 letras).");
@@ -43,7 +47,34 @@ export default function SignupPage() {
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.functions.invoke("send-verification-code", {
+      body: { email: email.trim(), action: "send" },
+    });
+    setLoading(false);
+    if (error || !data?.success) {
+      toast.error("Erro ao enviar código de verificação. Tenta novamente.");
+      return;
+    }
+    toast.success("Código enviado para o teu email!");
+    setStep(-1); // -1 = OTP verification step
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.length !== 6) {
+      toast.error("Introduz o código de 6 dígitos.");
+      return;
+    }
+    setVerifying(true);
+    const { data, error } = await supabase.functions.invoke("send-verification-code", {
+      body: { email: email.trim(), action: "verify", code: otpCode },
+    });
+    if (error || !data?.verified) {
+      setVerifying(false);
+      toast.error(data?.error || "Código inválido ou expirado.");
+      return;
+    }
+    // Code verified — now create the account
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -51,14 +82,28 @@ export default function SignupPage() {
         emailRedirectTo: window.location.origin,
       },
     });
-    setLoading(false);
-    if (error) {
-      toast.error(error.message);
+    setVerifying(false);
+    if (signUpError) {
+      toast.error(signUpError.message);
       return;
     }
-    if (data.user) {
+    if (signUpData.user) {
       setStep(1);
     }
+  };
+
+  const handleResendCode = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.functions.invoke("send-verification-code", {
+      body: { email: email.trim(), action: "send" },
+    });
+    setLoading(false);
+    if (error || !data?.success) {
+      toast.error("Erro ao reenviar o código.");
+      return;
+    }
+    toast.success("Novo código enviado!");
+    setOtpCode("");
   };
 
   const saveOnboarding = async () => {
@@ -78,6 +123,64 @@ export default function SignupPage() {
     setLoading(false);
     navigate("/dashboard");
   };
+
+  // OTP verification screen
+  if (step === -1) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <Link to="/" className="inline-flex items-center gap-2 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-gradient-hero flex items-center justify-center">
+                <Brain className="w-6 h-6 text-primary-foreground" />
+              </div>
+              <span className="font-bold text-xl">MACASA IA</span>
+            </Link>
+            <h1 className="text-2xl font-bold mb-2">Verifica o teu email</h1>
+            <p className="text-muted-foreground text-sm">
+              Enviámos um código de 6 dígitos para <strong>{email}</strong>
+            </p>
+          </div>
+          <div className="bg-card rounded-xl p-8 shadow-card border border-border/50 space-y-6">
+            <div className="flex flex-col items-center gap-4">
+              <Label>Código de verificação</Label>
+              <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+            <Button variant="hero" className="w-full" onClick={handleVerifyOtp} disabled={verifying || otpCode.length !== 6}>
+              {verifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Verificar e criar conta <ChevronRight className="w-4 h-4" />
+            </Button>
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                className="text-sm text-muted-foreground hover:text-foreground"
+                onClick={() => { setStep(0); setOtpCode(""); }}
+              >
+                <ChevronLeft className="w-4 h-4 inline" /> Voltar
+              </button>
+              <button
+                type="button"
+                className="text-sm text-primary hover:underline"
+                onClick={handleResendCode}
+                disabled={loading}
+              >
+                {loading ? "A enviar..." : "Reenviar código"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (step === 0) {
     return (
@@ -111,7 +214,7 @@ export default function SignupPage() {
                 </button>
               </div>
             </div>
-            <Button variant="hero" className="w-full" onClick={handleSignup} disabled={loading}>
+            <Button variant="hero" className="w-full" onClick={handleSendOtp} disabled={loading}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Criar conta <ChevronRight className="w-4 h-4" />
             </Button>

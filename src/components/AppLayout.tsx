@@ -65,7 +65,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom nav */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border flex justify-around py-2">
-        {navItems.slice(0, 5).map(item => {
+        {navItems.slice(0, 4).map(item => {
           const active = location.pathname === item.url;
           return (
             <Link key={item.url} to={item.url} className={`flex flex-col items-center gap-1 px-2 py-1 text-xs ${active ? "text-primary" : "text-muted-foreground"}`}>
@@ -74,6 +74,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Link>
           );
         })}
+        <button onClick={handleSignOut} className="flex flex-col items-center gap-1 px-2 py-1 text-xs text-muted-foreground">
+          <LogOut className="w-5 h-5" />
+          <span>Sair</span>
+        </button>
       </div>
 
       {/* Main content */}

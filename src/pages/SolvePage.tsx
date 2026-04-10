@@ -272,8 +272,10 @@ export default function SolvePage() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
             <h3 className="text-sm font-medium text-muted-foreground mb-3">💡 Experimenta com estes exercícios:</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {exampleExercises.filter(ex => !subject || ex.subject === subject).map((ex, i) => (
-                <button key={i} onClick={() => { setExercise(ex.text); setSubject(ex.subject); }}
+              {exampleExercises
+                .filter(ex => enrolledSubject ? ex.subject === enrolledSubject : (!subject || ex.subject === subject))
+                .map((ex, i) => (
+                <button key={i} onClick={() => { setExercise(ex.text); if (!enrolledSubject) setSubject(ex.subject); }}
                   className="text-left p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all text-sm">
                   <Badge variant="outline" className="text-[10px] mb-1">{ex.subject}</Badge>
                   <p className="line-clamp-2">{ex.text}</p>

@@ -116,6 +116,20 @@ export default function SolvePage() {
       }
 
       const analysis = await solveExercise({ exercise: text, mode: "solve_analyze", year, subject });
+      
+      // Validate subject match for free-plan students
+      if (enrolledSubject && analysis && !analysis.raw) {
+        const detectedSubject = analysis.disciplina || analysis.subject || "";
+        const normalizedDetected = detectedSubject.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const normalizedEnrolled = enrolledSubject.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        if (normalizedDetected && !normalizedDetected.includes(normalizedEnrolled) && !normalizedEnrolled.includes(normalizedDetected)) {
+          toast.error(`Só podes resolver exercícios de ${enrolledSubject}. O exercício introduzido parece ser de ${detectedSubject}.`);
+          setLoading(false);
+          clearInterval(interval);
+          return;
+        }
+      }
+      
       setResult(prev => ({ ...prev, analysis }));
 
       const strategy = await solveExercise({ exercise: text, mode: "solve_strategy", year, subject });

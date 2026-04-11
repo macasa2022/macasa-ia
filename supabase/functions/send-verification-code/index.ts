@@ -75,6 +75,22 @@ Deno.serve(async (req) => {
 
       const idempotencyKey = `verify-${normalizedEmail}-${Date.now()}`
 
+      // Get or create unsubscribe token for this email
+      const { data: existingToken } = await supabase
+        .from('email_unsubscribe_tokens')
+        .select('token')
+        .eq('email', normalizedEmail)
+        .maybeSingle()
+
+      let unsubscribeToken = existingToken?.token
+      if (!unsubscribeToken) {
+        unsubscribeToken = crypto.randomUUID()
+        await supabase.from('email_unsubscribe_tokens').insert({
+          email: normalizedEmail,
+          token: unsubscribeToken,
+        })
+      }
+
       const { error: emailError } = await supabase.rpc('enqueue_email', {
         queue_name: 'transactional_emails',
         payload: {
@@ -89,6 +105,7 @@ Deno.serve(async (req) => {
           message_id: idempotencyKey,
           label: 'verification-code',
           queued_at: new Date().toISOString(),
+          unsubscribe_token: unsubscribeToken,
         },
       })
 

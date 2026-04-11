@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
           to: normalizedEmail,
           subject: 'O teu código de verificação - MACASA IA',
           html: emailHtml,
+          text: `O teu código de verificação é: ${verificationCode}. Este código expira em 5 minutos.`,
           from: 'MACASA IA <noreply@logicpathways.online>',
           sender_domain: 'notify.logicpathways.online',
           purpose: 'transactional',

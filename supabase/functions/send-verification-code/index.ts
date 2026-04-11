@@ -73,6 +73,8 @@ Deno.serve(async (req) => {
         </div>
       `
 
+      const idempotencyKey = `verify-${normalizedEmail}-${Date.now()}`
+
       const { error: emailError } = await supabase.rpc('enqueue_email', {
         queue_name: 'transactional_emails',
         payload: {
@@ -81,6 +83,11 @@ Deno.serve(async (req) => {
           html: emailHtml,
           from: 'MACASA IA <noreply@logicpathways.online>',
           sender_domain: 'notify.logicpathways.online',
+          purpose: 'transactional',
+          idempotency_key: idempotencyKey,
+          message_id: idempotencyKey,
+          label: 'verification-code',
+          queued_at: new Date().toISOString(),
         },
       })
 

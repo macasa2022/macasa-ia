@@ -73,14 +73,39 @@ Deno.serve(async (req) => {
         </div>
       `
 
+      const idempotencyKey = `verify-${normalizedEmail}-${Date.now()}`
+
+      // Get or create unsubscribe token for this email
+      const { data: existingToken } = await supabase
+        .from('email_unsubscribe_tokens')
+        .select('token')
+        .eq('email', normalizedEmail)
+        .maybeSingle()
+
+      let unsubscribeToken = existingToken?.token
+      if (!unsubscribeToken) {
+        unsubscribeToken = crypto.randomUUID()
+        await supabase.from('email_unsubscribe_tokens').insert({
+          email: normalizedEmail,
+          token: unsubscribeToken,
+        })
+      }
+
       const { error: emailError } = await supabase.rpc('enqueue_email', {
         queue_name: 'transactional_emails',
         payload: {
           to: normalizedEmail,
           subject: 'O teu código de verificação - MACASA IA',
           html: emailHtml,
+          text: `O teu código de verificação é: ${verificationCode}. Este código expira em 5 minutos.`,
           from: 'MACASA IA <noreply@logicpathways.online>',
           sender_domain: 'notify.logicpathways.online',
+          purpose: 'transactional',
+          idempotency_key: idempotencyKey,
+          message_id: idempotencyKey,
+          label: 'verification-code',
+          queued_at: new Date().toISOString(),
+          unsubscribe_token: unsubscribeToken,
         },
       })
 

@@ -74,14 +74,14 @@ Deno.serve(async (req) => {
       `
 
       const { error: emailError } = await supabase.rpc('enqueue_email', {
-        p_queue_name: 'transactional_emails',
-        p_message: JSON.stringify({
+        queue_name: 'transactional_emails',
+        payload: {
           to: normalizedEmail,
           subject: 'O teu código de verificação - MACASA IA',
           html: emailHtml,
           from: 'MACASA IA <noreply@logicpathways.online>',
           sender_domain: 'notify.logicpathways.online',
-        }),
+        },
       })
 
       if (emailError) {

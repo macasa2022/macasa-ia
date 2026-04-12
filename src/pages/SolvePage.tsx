@@ -68,12 +68,13 @@ export default function SolvePage() {
     ? profile.disciplinas_favoritas[0]
     : isFreeUser ? "__none__" : null;
   
-  const visibleSubjects = enrolledSubject
+  const noSubjectAccess = enrolledSubject === "__none__";
+  const visibleSubjects = enrolledSubject && enrolledSubject !== "__none__"
     ? subjects.filter(s => s.id === enrolledSubject)
-    : subjects;
+    : enrolledSubject === "__none__" ? [] : subjects;
 
   const [exercise, setExercise] = useState("");
-  const [subject, setSubject] = useState(enrolledSubject || "");
+  const [subject, setSubject] = useState(enrolledSubject && enrolledSubject !== "__none__" ? enrolledSubject : "");
   const [year, setYear] = useState(profile?.ano_escolar || "");
 
   // Sync subject/year when profile loads asynchronously

@@ -175,7 +175,7 @@ export default function SignupPage() {
       if (attempt === 0) await new Promise(r => setTimeout(r, 1000));
     }
 
-    if (error || !data?.disciplinas_favoritas?.length) {
+    if (lastError || !savedData?.disciplinas_favoritas?.length) {
       setLoading(false);
       toast.error("Não foi possível guardar a disciplina selecionada. Tenta novamente.");
       return;

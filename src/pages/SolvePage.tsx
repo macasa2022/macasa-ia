@@ -151,7 +151,8 @@ export default function SolvePage() {
         }
       }
 
-      const analysis = await solveExercise({ exercise: text, mode: "solve_analyze", year, subject });
+      const imgData = imagePreview || undefined;
+      const analysis = await solveExercise({ exercise: text, mode: "solve_analyze", year, subject, imageBase64: imgData });
       
       // Validate subject match for free-plan students
       if (enrolledSubject && analysis && !analysis.raw) {
@@ -168,14 +169,14 @@ export default function SolvePage() {
       
       setResult(prev => ({ ...prev, analysis }));
 
-      const strategy = await solveExercise({ exercise: text, mode: "solve_strategy", year, subject });
+      const strategy = await solveExercise({ exercise: text, mode: "solve_strategy", year, subject, imageBase64: imgData });
       setResult(prev => ({ ...prev, strategy }));
 
-      const solution = await solveExercise({ exercise: text, mode, year, subject });
+      const solution = await solveExercise({ exercise: text, mode, year, subject, imageBase64: imgData });
       setResult(prev => ({ ...prev, solution }));
 
       if (["solve_resolve", "solve_explain", "solve_professor"].includes(mode)) {
-        const practice = await solveExercise({ exercise: text, mode: "solve_practice", year, subject });
+        const practice = await solveExercise({ exercise: text, mode: "solve_practice", year, subject, imageBase64: imgData });
         setResult(prev => ({ ...prev, practice }));
       }
 

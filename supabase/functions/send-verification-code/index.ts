@@ -41,8 +41,8 @@ Deno.serve(async (req) => {
         .eq('email', normalizedEmail)
         .maybeSingle()
       if (profileMatch) {
-        return new Response(JSON.stringify({ error: 'Este email já está registado. Tenta iniciar sessão.' }), {
-          status: 409,
+        return new Response(JSON.stringify({ success: false, error: 'Este email já está registado. Tenta iniciar sessão.' }), {
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }

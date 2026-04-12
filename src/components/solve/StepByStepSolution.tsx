@@ -32,7 +32,8 @@ export default function StepByStepSolution({ steps }: { steps: Step[] }) {
         <h3 className="font-semibold text-sm">Resolução Passo a Passo</h3>
       </div>
 
-      {steps.map((step, i) => {
+      {(steps || []).map((step, i) => {
+        if (!step || typeof step !== 'object') return null;
         const isOpen = expanded[step.numero] !== false; // default open
         return (
           <motion.div

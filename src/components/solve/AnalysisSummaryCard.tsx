@@ -57,7 +57,7 @@ export default function AnalysisSummaryCard({ data }: { data: Analysis }) {
       </div>
 
       <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-        {data.dados && data.dados.length > 0 && (
+        {Array.isArray(data.dados) && data.dados.length > 0 && (
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <List className="w-3.5 h-3.5" /> DADOS FORNECIDOS

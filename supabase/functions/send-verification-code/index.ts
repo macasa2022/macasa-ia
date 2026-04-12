@@ -34,6 +34,18 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey)
 
     if (action === 'send') {
+      // Check if email is already registered
+      const { data: existingUser } = await supabase.auth.admin.listUsers()
+      const emailExists = existingUser?.users?.some(
+        (u) => u.email?.toLowerCase() === normalizedEmail
+      )
+      if (emailExists) {
+        return new Response(JSON.stringify({ error: 'Este email já está registado. Tenta iniciar sessão.' }), {
+          status: 409,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
       const verificationCode = String(Math.floor(100000 + Math.random() * 900000))
 
       // Delete old codes for this email

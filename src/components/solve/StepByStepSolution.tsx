@@ -13,6 +13,20 @@ type Step = {
   nota_teorica?: string;
 };
 
+const toText = (value: unknown) => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(toText).filter(Boolean).join(", ");
+  if (value && typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "";
+    }
+  }
+  return "";
+};
+
 export default function StepByStepSolution({ steps }: { steps: Step[] }) {
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
 
@@ -34,57 +48,69 @@ export default function StepByStepSolution({ steps }: { steps: Step[] }) {
 
       {(steps || []).map((step, i) => {
         if (!step || typeof step !== 'object') return null;
-        const isOpen = expanded[step.numero] !== false; // default open
+        const numero = typeof step.numero === "number" ? step.numero : i + 1;
+        const titulo = toText(step.titulo) || `Passo ${numero}`;
+        const oQueFazemos = toText(step.o_que_fazemos);
+        const porque = toText(step.porque);
+        const fundamentacao = toText(step.fundamentacao);
+        const calculo = toText(step.calculo);
+        const dica = toText(step.dica);
+        const notaTeorica = toText(step.nota_teorica);
+        const isOpen = expanded[numero] !== false; // default open
         return (
           <motion.div
-            key={step.numero}
+            key={numero}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 + i * 0.06 }}
             className="bg-card rounded-xl border border-border/50 shadow-card overflow-hidden"
           >
             <button
-              onClick={() => toggle(step.numero)}
+              onClick={() => toggle(numero)}
               className="w-full flex items-center gap-3 p-4 hover:bg-secondary/30 transition-colors text-left"
             >
               <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">
-                {step.numero}
+                {numero}
               </div>
-              <span className="font-medium text-sm flex-1">{step.titulo}</span>
+              <span className="font-medium text-sm flex-1">{titulo}</span>
               {isOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
             </button>
 
             {isOpen && (
               <div className="px-4 pb-4 space-y-3 border-t border-border/30 pt-3">
                 {/* What we're doing */}
-                <div>
-                  <div className="text-xs font-medium text-muted-foreground mb-1">O QUE FAZEMOS</div>
-                  <p className="text-sm leading-relaxed">{step.o_que_fazemos}</p>
-                </div>
+                {oQueFazemos && (
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-1">O QUE FAZEMOS</div>
+                    <p className="text-sm leading-relaxed">{oQueFazemos}</p>
+                  </div>
+                )}
 
                 {/* Why */}
-                {(step.porque || step.fundamentacao) && (
+                {(porque || fundamentacao) && (
                   <div className="p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/20">
                     <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">
-                      {step.fundamentacao ? "FUNDAMENTAÇÃO" : "PORQUÊ?"}
+                      {fundamentacao ? "FUNDAMENTAÇÃO" : "PORQUÊ?"}
                     </div>
                     <p className="text-sm leading-relaxed text-blue-800 dark:text-blue-300">
-                      {step.fundamentacao || step.porque}
+                      {fundamentacao || porque}
                     </p>
                   </div>
                 )}
 
                 {/* Calculation */}
-                <div className="p-3 rounded-lg bg-secondary/50 border border-border/50">
-                  <pre className="text-sm font-mono whitespace-pre-wrap leading-relaxed">{step.calculo}</pre>
-                </div>
+                {calculo && (
+                  <div className="p-3 rounded-lg bg-secondary/50 border border-border/50">
+                    <pre className="text-sm font-mono whitespace-pre-wrap leading-relaxed">{calculo}</pre>
+                  </div>
+                )}
 
                 {/* Tip / Note */}
-                {(step.dica || step.nota_teorica) && (
+                {(dica || notaTeorica) && (
                   <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/20">
                     <Lightbulb className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
                     <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-300">
-                      {step.dica || step.nota_teorica}
+                      {dica || notaTeorica}
                     </p>
                   </div>
                 )}

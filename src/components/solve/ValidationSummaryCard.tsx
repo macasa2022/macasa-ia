@@ -9,7 +9,27 @@ type Validation = {
   faz_sentido?: string;
 };
 
+const toText = (value: unknown) => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(toText).filter(Boolean).join(", ");
+  if (value && typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "";
+    }
+  }
+  return "";
+};
+
 export default function ValidationSummaryCard({ data }: { data: Validation }) {
+  const respostaFinal = toText(data.resposta_final);
+  const unidade = toText(data.unidade);
+  const verificacao = toText(data.verificacao);
+  const interpretacao = toText(data.interpretacao);
+  const fazSentido = toText(data.faz_sentido);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -26,37 +46,39 @@ export default function ValidationSummaryCard({ data }: { data: Validation }) {
 
       <div className="p-4 space-y-3">
         {/* Final answer */}
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20">
-          <CheckCircle className="w-6 h-6 text-primary shrink-0" />
-          <div>
-            <div className="text-xs font-medium text-muted-foreground">RESPOSTA FINAL</div>
-            <div className="text-lg font-bold text-primary">
-              {data.resposta_final}
-              {data.unidade && <span className="text-sm font-normal ml-1">({data.unidade})</span>}
+        {respostaFinal && (
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20">
+            <CheckCircle className="w-6 h-6 text-primary shrink-0" />
+            <div>
+              <div className="text-xs font-medium text-muted-foreground">RESPOSTA FINAL</div>
+              <div className="text-lg font-bold text-primary">
+                {respostaFinal}
+                {unidade && <span className="text-sm font-normal ml-1">({unidade})</span>}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {data.verificacao && (
+        {verificacao && (
           <div className="p-3 rounded-lg bg-secondary/50">
             <div className="text-xs font-medium text-muted-foreground mb-1">✅ VERIFICAÇÃO</div>
-            <p className="text-sm">{data.verificacao}</p>
+            <p className="text-sm">{verificacao}</p>
           </div>
         )}
 
-        {data.interpretacao && (
+        {interpretacao && (
           <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/20">
             <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">💬 EM LINGUAGEM SIMPLES</div>
-            <p className="text-sm text-blue-800 dark:text-blue-300">{data.interpretacao}</p>
+            <p className="text-sm text-blue-800 dark:text-blue-300">{interpretacao}</p>
           </div>
         )}
 
-        {data.faz_sentido && (
+        {fazSentido && (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-green-500/5 border border-green-500/20">
             <HelpCircle className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5" />
             <div>
               <div className="text-xs font-medium text-green-600 dark:text-green-400 mb-0.5">FAZ SENTIDO?</div>
-              <p className="text-sm text-green-800 dark:text-green-300">{data.faz_sentido}</p>
+              <p className="text-sm text-green-800 dark:text-green-300">{fazSentido}</p>
             </div>
           </div>
         )}

@@ -36,28 +36,59 @@ export default function SignupPage() {
   // Step 0: credentials form → sends OTP and goes to step "otp"
   const handleSendOtp = async () => {
     const trimmedName = name.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+
     if (!trimmedName || trimmedName.length < 3 || !/[a-zA-ZÀ-ÿ]/.test(trimmedName)) {
       toast.error("Introduz um nome válido (mínimo 3 letras).");
       return;
     }
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-    if (!emailRegex.test(email.trim())) {
+    if (!emailRegex.test(normalizedEmail)) {
       toast.error("Introduz um email válido.");
       return;
     }
+
     if (password.length < 6) {
       toast.error("A palavra-passe deve ter pelo menos 6 caracteres.");
       return;
     }
+
     setLoading(true);
-    const { data, error } = await supabase.functions.invoke("send-verification-code", {
-      body: { email: email.trim(), action: "send" },
-    });
-    setLoading(false);
-    if (error || !data?.success) {
-      toast.error(data?.error || "Erro ao enviar código de verificação. Tenta novamente.");
+
+    const { data: existingProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+
+    if (profileError) {
+      setLoading(false);
+      toast.error("Erro ao validar o email. Tenta novamente.");
       return;
     }
+
+    if (existingProfile) {
+      setLoading(false);
+      toast.error("Este email já está registado. Tenta iniciar sessão.");
+      return;
+    }
+
+    const { data, error } = await supabase.functions.invoke("send-verification-code", {
+      body: { email: normalizedEmail, action: "send" },
+    });
+
+    setLoading(false);
+
+    if (error || !data?.success) {
+      const serverMessage = data && typeof data === "object" && "error" in data ? data.error : undefined;
+      const fallbackMessage = error?.message === "FunctionsHttpError"
+        ? "Este email já está registado. Tenta iniciar sessão."
+        : "Erro ao enviar código de verificação. Tenta novamente.";
+      toast.error(typeof serverMessage === "string" ? serverMessage : fallbackMessage);
+      return;
+    }
+
     toast.success("Código enviado para o teu email!");
     setStep(-1); // -1 = OTP verification step
   };

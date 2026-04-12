@@ -363,11 +363,36 @@ export default function SolvePage() {
                       <ValidationSummaryCard data={sol} />
                     </>
                   )}
-                  {(sol.raw || (!hasPassos && !["solve_hint", "solve_training"].includes(mode))) && (
-                    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl border border-border/50 shadow-card p-4">
-                      <p className="text-sm whitespace-pre-wrap">{typeof sol.raw === "string" ? sol.raw : JSON.stringify(sol, null, 2)}</p>
-                    </motion.div>
-                  )}
+                  {(sol.raw || (!hasPassos && !["solve_hint", "solve_training"].includes(mode))) && (() => {
+                    // Try to recover structured data from raw content
+                    let recovered: any = null;
+                    if (typeof sol.raw === "string") {
+                      try {
+                        const jsonMatch = sol.raw.match(/\{[\s\S]*\}/);
+                        if (jsonMatch) recovered = JSON.parse(jsonMatch[0]);
+                      } catch { /* ignore */ }
+                    }
+                    if (recovered && Array.isArray(recovered.passos) && recovered.passos.length > 0) {
+                      return (
+                        <>
+                          <StepByStepSolution steps={recovered.passos} />
+                          <ValidationSummaryCard data={recovered} />
+                        </>
+                      );
+                    }
+                    // Show as readable text, stripping JSON formatting
+                    const displayText = typeof sol.raw === "string" 
+                      ? sol.raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim()
+                      : "";
+                    if (displayText) {
+                      return (
+                        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl border border-border/50 shadow-card p-4">
+                          <p className="text-sm whitespace-pre-wrap">{displayText}</p>
+                        </motion.div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </>
               );
             } catch {

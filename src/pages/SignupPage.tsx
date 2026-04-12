@@ -242,17 +242,20 @@ export default function SignupPage() {
       valid: !!selectedYear,
     },
     {
-      title: "Quais as disciplinas com mais dificuldade?",
+      title: "Em qual disciplina precisas de mais ajuda?",
       content: (
-        <div className="grid grid-cols-1 gap-3">
-          {subjects.map(s => (
-            <button key={s} onClick={() => toggleSubject(s)} className={`p-4 rounded-xl border text-sm font-medium transition-all text-left flex items-center justify-between ${selectedSubjects.includes(s) ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/30"}`}>
-              {s} {selectedSubjects.includes(s) && <CheckCircle2 className="w-5 h-5" />}
-            </button>
-          ))}
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground text-center">No plano gratuito, podes escolher apenas uma disciplina.</p>
+          <div className="grid grid-cols-1 gap-3">
+            {subjects.map(s => (
+              <button key={s} onClick={() => setSelectedSubjects([s])} className={`p-4 rounded-xl border text-sm font-medium transition-all text-left flex items-center justify-between ${selectedSubjects.includes(s) ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/30"}`}>
+                {s} {selectedSubjects.includes(s) && <CheckCircle2 className="w-5 h-5" />}
+              </button>
+            ))}
+          </div>
         </div>
       ),
-      valid: selectedSubjects.length > 0,
+      valid: selectedSubjects.length === 1,
     },
     {
       title: "Qual é o teu objetivo principal?",

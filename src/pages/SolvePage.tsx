@@ -62,9 +62,11 @@ export default function SolvePage() {
   const { isOnCooldown, isLimited, showWarning, remaining, recordQuestion, getCooldownTimeLeft } = useUsageLimit();
   
   // For free non-admin users, lock to their enrolled discipline
-  const enrolledSubject = (!isAdmin && !isPremium && profile?.disciplinas_favoritas?.length)
+  // If a free user has no subjects or multiple (legacy), block access to all — they must fix their profile
+  const isFreeUser = !isAdmin && !isPremium;
+  const enrolledSubject = (isFreeUser && profile?.disciplinas_favoritas?.length === 1)
     ? profile.disciplinas_favoritas[0]
-    : null;
+    : isFreeUser ? "__none__" : null;
   
   const visibleSubjects = enrolledSubject
     ? subjects.filter(s => s.id === enrolledSubject)

@@ -2,19 +2,29 @@ import { motion } from "framer-motion";
 import { Brain, Eye, AlertTriangle, Lightbulb, Sparkles } from "lucide-react";
 
 type Strategy = {
-  ideia_principal?: string;
-  observar_primeiro?: string;
-  estrategia?: string;
-  erro_comum?: string;
-  dica_motivacional?: string;
+  ideia_principal?: unknown;
+  observar_primeiro?: unknown;
+  estrategia?: unknown;
+  erro_comum?: unknown;
+  dica_motivacional?: unknown;
+};
+
+const toText = (value: unknown): string => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(toText).filter(Boolean).join("\n");
+  if (value && typeof value === "object") {
+    try { return JSON.stringify(value); } catch { return ""; }
+  }
+  return "";
 };
 
 export default function StrategyThinkingCard({ data }: { data: Strategy }) {
   const items = [
-    { icon: Brain, label: "Ideia Principal", text: data.ideia_principal, color: "text-primary border-primary/30 bg-primary/5" },
-    { icon: Eye, label: "Observar Primeiro", text: data.observar_primeiro, color: "text-blue-600 dark:text-blue-400 border-blue-500/30 bg-blue-500/5" },
-    { icon: Lightbulb, label: "Estratégia", text: data.estrategia, color: "text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/5" },
-    { icon: AlertTriangle, label: "Erro Comum a Evitar", text: data.erro_comum, color: "text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/5" },
+    { icon: Brain, label: "Ideia Principal", text: toText(data.ideia_principal), color: "text-primary border-primary/30 bg-primary/5" },
+    { icon: Eye, label: "Observar Primeiro", text: toText(data.observar_primeiro), color: "text-blue-600 dark:text-blue-400 border-blue-500/30 bg-blue-500/5" },
+    { icon: Lightbulb, label: "Estratégia", text: toText(data.estrategia), color: "text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/5" },
+    { icon: AlertTriangle, label: "Erro Comum a Evitar", text: toText(data.erro_comum), color: "text-red-600 dark:text-red-400 border-red-500/30 bg-red-500/5" },
   ].filter(i => i.text);
 
   return (
@@ -44,8 +54,8 @@ export default function StrategyThinkingCard({ data }: { data: Strategy }) {
             <div>
               <div className="text-xs font-semibold uppercase tracking-wide mb-1">{item.label}</div>
               <div className="text-sm leading-relaxed space-y-1">
-                {item.text!.split(/(?:\d+\.\s|\n)/).filter(Boolean).length > 1
-                  ? item.text!.split(/(?:\d+\.\s)/).filter(Boolean).map((point, idx) => (
+                {item.text.split(/(?:\d+\.\s|\n)/).filter(Boolean).length > 1
+                  ? item.text.split(/(?:\d+\.\s)/).filter(Boolean).map((point, idx) => (
                       <p key={idx} className="flex gap-1.5">
                         <span className="font-semibold shrink-0">{idx + 1}.</span>
                         <span>{point.trim()}</span>
@@ -58,9 +68,9 @@ export default function StrategyThinkingCard({ data }: { data: Strategy }) {
           </motion.div>
         ))}
 
-        {data.dica_motivacional && (
+        {toText(data.dica_motivacional) && (
           <div className="mt-2 p-3 rounded-lg bg-primary/5 border border-primary/20 text-center">
-            <p className="text-sm text-primary font-medium">💡 {data.dica_motivacional}</p>
+            <p className="text-sm text-primary font-medium">💡 {toText(data.dica_motivacional)}</p>
           </div>
         )}
       </div>

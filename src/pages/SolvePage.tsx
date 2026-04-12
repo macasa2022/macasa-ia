@@ -348,24 +348,36 @@ export default function SolvePage() {
         <div ref={resultRef} className="space-y-4">
           {result.analysis && !result.analysis.raw && <AnalysisSummaryCard data={result.analysis} />}
           {result.strategy && !result.strategy.raw && <StrategyThinkingCard data={result.strategy} />}
-          {result.solution && (
-            <>
-              {mode === "solve_hint" && <HintInteractionCard data={result.solution} />}
-              {mode === "solve_professor" && <ProfessorModeBlock data={result.solution} />}
-              {mode === "solve_training" && result.solution.exercicio_treino && <TrainingFlowPanel data={result.solution} />}
-              {["solve_resolve", "solve_explain"].includes(mode) && Array.isArray(result.solution.passos) && result.solution.passos.length > 0 && (
+          {result.solution && (() => {
+            try {
+              const sol = result.solution;
+              const hasPassos = Array.isArray(sol.passos) && sol.passos.length > 0;
+              return (
                 <>
-                  <StepByStepSolution steps={result.solution.passos} />
-                  <ValidationSummaryCard data={result.solution} />
+                  {mode === "solve_hint" && <HintInteractionCard data={sol} />}
+                  {mode === "solve_professor" && <ProfessorModeBlock data={sol} />}
+                  {mode === "solve_training" && sol.exercicio_treino && <TrainingFlowPanel data={sol} />}
+                  {["solve_resolve", "solve_explain"].includes(mode) && hasPassos && (
+                    <>
+                      <StepByStepSolution steps={sol.passos} />
+                      <ValidationSummaryCard data={sol} />
+                    </>
+                  )}
+                  {(sol.raw || (!hasPassos && !["solve_hint", "solve_training"].includes(mode))) && (
+                    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl border border-border/50 shadow-card p-4">
+                      <p className="text-sm whitespace-pre-wrap">{typeof sol.raw === "string" ? sol.raw : JSON.stringify(sol, null, 2)}</p>
+                    </motion.div>
+                  )}
                 </>
-              )}
-              {result.solution.raw && (
+              );
+            } catch {
+              return (
                 <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl border border-border/50 shadow-card p-4">
-                  <p className="text-sm whitespace-pre-wrap">{result.solution.raw}</p>
+                  <p className="text-sm text-muted-foreground">Não foi possível apresentar a solução formatada. Tenta novamente.</p>
                 </motion.div>
-              )}
-            </>
-          )}
+              );
+            }
+          })()}
           {result.practice && !result.practice.raw && <PracticeNextCard data={result.practice} onTryExercise={handleTryExercise} />}
           {hasResult && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-wrap gap-2 mt-4 pb-4">

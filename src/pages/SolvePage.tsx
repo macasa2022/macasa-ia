@@ -152,7 +152,15 @@ export default function SolvePage() {
       }
 
       const imgData = imagePreview || undefined;
-      const analysis = await solveExercise({ exercise: text, mode: "solve_analyze", year, subject, imageBase64: imgData });
+      
+      // Step 1: Analysis - send image here
+      let analysis: any = null;
+      try {
+        analysis = await solveExercise({ exercise: text, mode: "solve_analyze", year, subject, imageBase64: imgData });
+      } catch (err: any) {
+        toast.error("Erro na análise: " + (err.message || "Tenta novamente."));
+        return;
+      }
       
       // Validate subject match for free-plan students
       if (enrolledSubject && analysis && !analysis.raw) {
@@ -169,15 +177,31 @@ export default function SolvePage() {
       
       setResult(prev => ({ ...prev, analysis }));
 
-      const strategy = await solveExercise({ exercise: text, mode: "solve_strategy", year, subject, imageBase64: imgData });
-      setResult(prev => ({ ...prev, strategy }));
+      // Build a text summary from analysis to avoid re-sending the large image
+      const analysisContext = analysis && !analysis.raw
+        ? `[Exercício analisado] Disciplina: ${analysis.disciplina || "N/A"}, Tema: ${analysis.tema || "N/A"}, Subtema: ${analysis.subtema || "N/A"}, Dados: ${(analysis.dados || []).join("; ")}, Incógnitas: ${(analysis.incognitas || []).join("; ")}, Fórmulas: ${(analysis.formulas || []).join("; ")}. Enunciado original: ${text || "(imagem)"}`
+        : text;
 
-      const solution = await solveExercise({ exercise: text, mode, year, subject, imageBase64: imgData });
-      setResult(prev => ({ ...prev, solution }));
+      // Step 2: Strategy - use text summary, no image
+      try {
+        const strategy = await solveExercise({ exercise: analysisContext, mode: "solve_strategy", year, subject });
+        setResult(prev => ({ ...prev, strategy }));
+      } catch { /* non-critical */ }
 
+      // Step 3: Solution - use text summary, no image
+      try {
+        const solution = await solveExercise({ exercise: analysisContext, mode, year, subject });
+        setResult(prev => ({ ...prev, solution }));
+      } catch (err: any) {
+        toast.error("Erro na resolução: " + (err.message || "Tenta novamente."));
+      }
+
+      // Step 4: Practice - use text summary, no image
       if (["solve_resolve", "solve_explain", "solve_professor"].includes(mode)) {
-        const practice = await solveExercise({ exercise: text, mode: "solve_practice", year, subject, imageBase64: imgData });
-        setResult(prev => ({ ...prev, practice }));
+        try {
+          const practice = await solveExercise({ exercise: analysisContext, mode: "solve_practice", year, subject });
+          setResult(prev => ({ ...prev, practice }));
+        } catch { /* non-critical */ }
       }
 
       setHasResult(true);

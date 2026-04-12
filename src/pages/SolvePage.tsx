@@ -340,15 +340,20 @@ export default function SolvePage() {
               {mode === "solve_hint" && <HintInteractionCard data={result.solution} />}
               {mode === "solve_professor" && <ProfessorModeBlock data={result.solution} />}
               {mode === "solve_training" && result.solution.exercicio_treino && <TrainingFlowPanel data={result.solution} />}
-              {["solve_resolve", "solve_explain"].includes(mode) && result.solution.passos && (
+              {["solve_resolve", "solve_explain"].includes(mode) && Array.isArray(result.solution.passos) && result.solution.passos.length > 0 && (
                 <>
                   <StepByStepSolution steps={result.solution.passos} />
                   <ValidationSummaryCard data={result.solution} />
                 </>
               )}
+              {result.solution.raw && (
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl border border-border/50 shadow-card p-4">
+                  <p className="text-sm whitespace-pre-wrap">{result.solution.raw}</p>
+                </motion.div>
+              )}
             </>
           )}
-          {result.practice && <PracticeNextCard data={result.practice} onTryExercise={handleTryExercise} />}
+          {result.practice && !result.practice.raw && <PracticeNextCard data={result.practice} onTryExercise={handleTryExercise} />}
           {hasResult && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-wrap gap-2 mt-4 pb-4">
               <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => { setResult({}); setHasResult(false); setExercise(""); }}>

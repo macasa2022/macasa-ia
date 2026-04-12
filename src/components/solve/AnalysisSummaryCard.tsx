@@ -57,7 +57,7 @@ export default function AnalysisSummaryCard({ data }: { data: Analysis }) {
       </div>
 
       <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-        {data.dados && data.dados.length > 0 && (
+        {Array.isArray(data.dados) && data.dados.length > 0 && (
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <List className="w-3.5 h-3.5" /> DADOS FORNECIDOS
@@ -70,40 +70,40 @@ export default function AnalysisSummaryCard({ data }: { data: Analysis }) {
           </div>
         )}
 
-        {data.incognitas && data.incognitas.length > 0 && (
+        {Array.isArray(data.incognitas) && data.incognitas.length > 0 && (
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <Target className="w-3.5 h-3.5" /> O QUE DESCOBRIR
             </div>
             <ul className="space-y-1">
               {data.incognitas.map((d, i) => (
-                <li key={i} className="text-sm pl-3 border-l-2 border-accent/50 font-medium">{d}</li>
+                <li key={i} className="text-sm pl-3 border-l-2 border-accent/50 font-medium">{String(d)}</li>
               ))}
             </ul>
           </div>
         )}
 
-        {data.formulas && data.formulas.length > 0 && (
+        {Array.isArray(data.formulas) && data.formulas.length > 0 && (
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <Lightbulb className="w-3.5 h-3.5" /> FÓRMULAS RELEVANTES
             </div>
             <div className="flex flex-wrap gap-1.5">
               {data.formulas.map((f, i) => (
-                <code key={i} className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-md font-mono">{f}</code>
+                <code key={i} className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-md font-mono">{String(f)}</code>
               ))}
             </div>
           </div>
         )}
 
-        {data.armadilhas && data.armadilhas.length > 0 && (
+        {Array.isArray(data.armadilhas) && data.armadilhas.length > 0 && (
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-xs font-medium text-destructive">
               <AlertTriangle className="w-3.5 h-3.5" /> ATENÇÃO
             </div>
             <ul className="space-y-1">
               {data.armadilhas.map((a, i) => (
-                <li key={i} className="text-sm pl-3 border-l-2 border-destructive/30 text-muted-foreground">{a}</li>
+                <li key={i} className="text-sm pl-3 border-l-2 border-destructive/30 text-muted-foreground">{String(a)}</li>
               ))}
             </ul>
           </div>

@@ -127,8 +127,10 @@ export default function SignupPage() {
     }
 
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    const userId = user?.id ?? createdUserId;
+
+    // Ensure we have an active session
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id ?? createdUserId;
 
     if (!userId) {
       setLoading(false);
@@ -136,20 +138,42 @@ export default function SignupPage() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .upsert({
-        user_id: userId,
-        nome: name.trim(),
-        email: email.trim(),
-        ano_escolar: selectedYear,
-        disciplinas_favoritas: selectedSubjects.slice(0, 1),
-        objetivo_estudo: selectedGoal,
-        frequencia_estudo: selectedFreq,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id" })
-      .select("disciplinas_favoritas")
-      .single();
+    // If no active session but we have the userId, try to refresh
+    if (!session) {
+      setLoading(false);
+      toast.error("Sessão não encontrada. Por favor, faz login e completa o teu perfil nas definições.");
+      navigate("/login", { replace: true });
+      return;
+    }
+
+    // Retry upsert up to 2 times for transient RLS/timing issues
+    let lastError: any = null;
+    let savedData: any = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .upsert({
+          user_id: userId,
+          nome: name.trim(),
+          email: email.trim(),
+          ano_escolar: selectedYear,
+          disciplinas_favoritas: selectedSubjects.slice(0, 1),
+          objetivo_estudo: selectedGoal,
+          frequencia_estudo: selectedFreq,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id" })
+        .select("disciplinas_favoritas")
+        .single();
+
+      if (!error && data?.disciplinas_favoritas?.length) {
+        savedData = data;
+        lastError = null;
+        break;
+      }
+      lastError = error;
+      // Wait before retry
+      if (attempt === 0) await new Promise(r => setTimeout(r, 1000));
+    }
 
     if (error || !data?.disciplinas_favoritas?.length) {
       setLoading(false);

@@ -62,16 +62,19 @@ export default function SolvePage() {
   const { isOnCooldown, isLimited, showWarning, remaining, recordQuestion, getCooldownTimeLeft } = useUsageLimit();
   
   // For free non-admin users, lock to their enrolled discipline
-  const enrolledSubject = (!isAdmin && !isPremium && profile?.disciplinas_favoritas?.length)
+  // If a free user has no subjects or multiple (legacy), block access to all — they must fix their profile
+  const isFreeUser = !isAdmin && !isPremium;
+  const enrolledSubject = (isFreeUser && profile?.disciplinas_favoritas?.length === 1)
     ? profile.disciplinas_favoritas[0]
-    : null;
+    : isFreeUser ? "__none__" : null;
   
-  const visibleSubjects = enrolledSubject
+  const noSubjectAccess = enrolledSubject === "__none__";
+  const visibleSubjects = enrolledSubject && enrolledSubject !== "__none__"
     ? subjects.filter(s => s.id === enrolledSubject)
-    : subjects;
+    : enrolledSubject === "__none__" ? [] : subjects;
 
   const [exercise, setExercise] = useState("");
-  const [subject, setSubject] = useState(enrolledSubject || "");
+  const [subject, setSubject] = useState(enrolledSubject && enrolledSubject !== "__none__" ? enrolledSubject : "");
   const [year, setYear] = useState(profile?.ano_escolar || "");
 
   // Sync subject/year when profile loads asynchronously
@@ -164,6 +167,14 @@ export default function SolvePage() {
   return (
     <AppLayout>
       <div className="p-4 md:p-8 max-w-4xl mx-auto">
+        {noSubjectAccess && (
+          <Alert className="mb-4 border-amber-500/30 bg-amber-500/5">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <AlertDescription className="text-sm">
+              A tua conta não tem uma disciplina configurada corretamente. Vai a <strong>Definições</strong> e seleciona uma disciplina para poderes resolver exercícios.
+            </AlertDescription>
+          </Alert>
+        )}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
           <div className="flex items-center gap-3 mb-1">
             <div className="w-10 h-10 rounded-xl bg-gradient-hero flex items-center justify-center">
@@ -209,7 +220,7 @@ export default function SolvePage() {
             className="w-full p-4 bg-transparent resize-none min-h-[120px] text-sm focus:outline-none placeholder:text-muted-foreground/50" rows={4} />
           <div className="flex items-center justify-between p-3 border-t border-border/30">
             <Button variant="outline" size="sm" className="text-xs gap-1.5"><Upload className="w-3.5 h-3.5" /> Imagem</Button>
-            <Button variant="hero" size="sm" onClick={() => handleSolve()} disabled={loading || !exercise.trim() || isOnCooldown} className="gap-1.5">
+            <Button variant="hero" size="sm" onClick={() => handleSolve()} disabled={loading || !exercise.trim() || isOnCooldown || noSubjectAccess} className="gap-1.5">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               {loading ? "A analisar…" : "Analisar Exercício"}
             </Button>

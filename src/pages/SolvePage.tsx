@@ -248,12 +248,21 @@ export default function SolvePage() {
         </div>
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-card rounded-xl border border-border/50 shadow-card overflow-hidden mb-6">
-          <textarea value={exercise} onChange={(e) => setExercise(e.target.value)}
+          <textarea value={exercise} onChange={(e) => setExercise(e.target.value)} onPaste={handlePaste}
             placeholder="Escreve ou cola aqui o teu exercício... Ex: Resolve a equação 3x + 5 = 20"
             className="w-full p-4 bg-transparent resize-none min-h-[120px] text-sm focus:outline-none placeholder:text-muted-foreground/50" rows={4} />
+          {imagePreview && (
+            <div className="px-4 pb-2">
+              <div className="relative inline-block">
+                <img src={imagePreview} alt="Imagem do exercício" className="max-h-32 rounded-lg border border-border" />
+                <button onClick={removeImage} className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs font-bold">✕</button>
+              </div>
+            </div>
+          )}
+          <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageSelect(f); }} />
           <div className="flex items-center justify-between p-3 border-t border-border/30">
-            <Button variant="outline" size="sm" className="text-xs gap-1.5"><Upload className="w-3.5 h-3.5" /> Imagem</Button>
-            <Button variant="hero" size="sm" onClick={() => handleSolve()} disabled={loading || !exercise.trim() || isOnCooldown || noSubjectAccess} className="gap-1.5">
+            <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => fileInputRef.current?.click()}><Upload className="w-3.5 h-3.5" /> Imagem</Button>
+            <Button variant="hero" size="sm" onClick={() => handleSolve()} disabled={loading || (!exercise.trim() && !imageFile) || isOnCooldown || noSubjectAccess} className="gap-1.5">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               {loading ? "A analisar…" : "Analisar Exercício"}
             </Button>

@@ -167,6 +167,14 @@ export default function SolvePage() {
   return (
     <AppLayout>
       <div className="p-4 md:p-8 max-w-4xl mx-auto">
+        {noSubjectAccess && (
+          <Alert className="mb-4 border-amber-500/30 bg-amber-500/5">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <AlertDescription className="text-sm">
+              A tua conta não tem uma disciplina configurada corretamente. Vai a <strong>Definições</strong> e seleciona uma disciplina para poderes resolver exercícios.
+            </AlertDescription>
+          </Alert>
+        )}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
           <div className="flex items-center gap-3 mb-1">
             <div className="w-10 h-10 rounded-xl bg-gradient-hero flex items-center justify-center">

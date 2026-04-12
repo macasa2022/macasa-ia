@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Link, useNavigate } from "react-router-dom";
 import { Brain, Eye, EyeOff, ChevronRight, ChevronLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
@@ -26,7 +27,9 @@ export default function SignupPage() {
   const [selectedFreq, setSelectedFreq] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [verifying, setVerifying] = useState(false);
+  const [createdUserId, setCreatedUserId] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { refreshProfile } = useAuth();
 
   const toggleSubject = (s: string) => setSelectedSubjects(prev => prev.includes(s) ? prev.filter(x => x !== s) : [s]);
 
@@ -88,6 +91,7 @@ export default function SignupPage() {
       return;
     }
     if (signUpData.user) {
+      setCreatedUserId(signUpData.user.id);
       setStep(1);
     }
   };
@@ -107,21 +111,45 @@ export default function SignupPage() {
   };
 
   const saveOnboarding = async () => {
+    if (selectedSubjects.length !== 1) {
+      toast.error("Seleciona uma disciplina para continuar.");
+      return;
+    }
+
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase
-        .from("profiles")
-        .update({
-          ano_escolar: selectedYear,
-          disciplinas_favoritas: selectedSubjects,
-          objetivo_estudo: selectedGoal,
-          frequencia_estudo: selectedFreq,
-        })
-        .eq("user_id", user.id);
+    const userId = user?.id ?? createdUserId;
+
+    if (!userId) {
+      setLoading(false);
+      toast.error("Não foi possível associar a conta à disciplina. Inicia sessão e tenta novamente.");
+      return;
     }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .upsert({
+        user_id: userId,
+        nome: name.trim(),
+        email: email.trim(),
+        ano_escolar: selectedYear,
+        disciplinas_favoritas: selectedSubjects.slice(0, 1),
+        objetivo_estudo: selectedGoal,
+        frequencia_estudo: selectedFreq,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" })
+      .select("disciplinas_favoritas")
+      .single();
+
+    if (error || !data?.disciplinas_favoritas?.length) {
+      setLoading(false);
+      toast.error("Não foi possível guardar a disciplina selecionada. Tenta novamente.");
+      return;
+    }
+
+    await refreshProfile();
     setLoading(false);
-    navigate("/dashboard");
+    navigate("/dashboard", { replace: true });
   };
 
   // OTP verification screen

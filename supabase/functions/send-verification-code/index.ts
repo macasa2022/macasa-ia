@@ -35,11 +35,12 @@ Deno.serve(async (req) => {
 
     if (action === 'send') {
       // Check if email is already registered
-      const { data: existingUser } = await supabase.auth.admin.listUsers()
-      const emailExists = existingUser?.users?.some(
-        (u) => u.email?.toLowerCase() === normalizedEmail
-      )
-      if (emailExists) {
+      const { data: profileMatch } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('email', normalizedEmail)
+        .maybeSingle()
+      if (profileMatch) {
         return new Response(JSON.stringify({ error: 'Este email já está registado. Tenta iniciar sessão.' }), {
           status: 409,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

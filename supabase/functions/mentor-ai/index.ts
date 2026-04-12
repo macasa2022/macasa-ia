@@ -193,7 +193,7 @@ serve(async (req) => {
       });
     }
 
-    const { messages, mode, exercise, year, subject } = await req.json();
+    const { messages, mode, exercise, year, subject, imageBase64 } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
@@ -208,9 +208,22 @@ serve(async (req) => {
       const context = `\n\nContexto: Ano escolar: ${year || "não especificado"}. Disciplina: ${subject || "não especificada"}.`;
       systemPrompt += context;
 
+      const exerciseText = exercise || messages?.[messages.length - 1]?.content || "";
+      
+      // Build user content - support image + text
+      let userContent: any;
+      if (imageBase64) {
+        userContent = [
+          { type: "text", text: exerciseText || "Analisa este exercício da imagem." },
+          { type: "image_url", image_url: { url: imageBase64 } },
+        ];
+      } else {
+        userContent = exerciseText;
+      }
+
       const aiMessages = [
         { role: "system", content: systemPrompt },
-        { role: "user", content: exercise || messages?.[messages.length - 1]?.content || "" },
+        { role: "user", content: userContent },
       ];
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

@@ -58,7 +58,7 @@ type SolveResult = {
 };
 
 export default function SolvePage() {
-  const { profile, isAdmin, isPremium } = useAuth();
+  const { profile, isAdmin, isPremium, loading: authLoading } = useAuth();
   const { isOnCooldown, isLimited, showWarning, remaining, recordQuestion, getCooldownTimeLeft } = useUsageLimit();
   
   // For free non-admin users, lock to their enrolled discipline

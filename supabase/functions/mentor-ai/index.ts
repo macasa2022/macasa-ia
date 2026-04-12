@@ -274,10 +274,20 @@ serve(async (req) => {
       let parsed;
       try {
         // Remove potential markdown code blocks
-        const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        let cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
         parsed = JSON.parse(cleaned);
       } catch {
-        parsed = { raw: content };
+        // Try to extract JSON object from mixed text (AI sometimes adds preamble)
+        try {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            parsed = JSON.parse(jsonMatch[0]);
+          } else {
+            parsed = { raw: content };
+          }
+        } catch {
+          parsed = { raw: content };
+        }
       }
 
       return new Response(JSON.stringify(parsed), {

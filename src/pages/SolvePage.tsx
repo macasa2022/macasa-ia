@@ -74,6 +74,9 @@ export default function SolvePage() {
     : enrolledSubject === "__none__" ? [] : subjects;
 
   const [exercise, setExercise] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [subject, setSubject] = useState(enrolledSubject && enrolledSubject !== "__none__" ? enrolledSubject : "");
   const [year, setYear] = useState(profile?.ano_escolar || "");
 

@@ -58,7 +58,7 @@ type SolveResult = {
 };
 
 export default function SolvePage() {
-  const { profile, isAdmin, isPremium } = useAuth();
+  const { profile, isAdmin, isPremium, loading: authLoading } = useAuth();
   const { isOnCooldown, isLimited, showWarning, remaining, recordQuestion, getCooldownTimeLeft } = useUsageLimit();
   
   // For free non-admin users, lock to their enrolled discipline
@@ -66,9 +66,9 @@ export default function SolvePage() {
   const isFreeUser = !isAdmin && !isPremium;
   const enrolledSubject = (isFreeUser && profile?.disciplinas_favoritas?.length === 1)
     ? profile.disciplinas_favoritas[0]
-    : isFreeUser ? "__none__" : null;
+    : isFreeUser && profile ? "__none__" : null;
   
-  const noSubjectAccess = enrolledSubject === "__none__";
+  const noSubjectAccess = enrolledSubject === "__none__" && !authLoading;
   const visibleSubjects = enrolledSubject && enrolledSubject !== "__none__"
     ? subjects.filter(s => s.id === enrolledSubject)
     : enrolledSubject === "__none__" ? [] : subjects;

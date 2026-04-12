@@ -92,6 +92,16 @@ export default function SignupPage() {
     }
     if (signUpData.user) {
       setCreatedUserId(signUpData.user.id);
+      // Wait for the session to be fully established before proceeding
+      if (signUpData.session) {
+        await supabase.auth.setSession({
+          access_token: signUpData.session.access_token,
+          refresh_token: signUpData.session.refresh_token,
+        });
+      } else {
+        // If no session returned, wait briefly for auth state to propagate
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
       setStep(1);
     }
   };

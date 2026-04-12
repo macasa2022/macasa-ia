@@ -94,9 +94,39 @@ export default function SolvePage() {
   const [hasResult, setHasResult] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
 
+  const handleImageSelect = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Por favor, seleciona um ficheiro de imagem.");
+      return;
+    }
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => setImagePreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) handleImageSelect(file);
+        return;
+      }
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleSolve = async (exerciseText?: string) => {
     const text = exerciseText || exercise;
-    if (!text.trim()) { toast.error("Escreve um exercício primeiro."); return; }
+    if (!text.trim() && !imageFile) { toast.error("Escreve um exercício ou envia uma imagem."); return; }
 
     setLoading(true);
     setHasResult(false);

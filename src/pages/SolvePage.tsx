@@ -57,6 +57,19 @@ type SolveResult = {
   practice?: any;
 };
 
+const safeJoin = (value: unknown) => (
+  Array.isArray(value)
+    ? value
+        .map((item) => {
+          if (typeof item === "string") return item;
+          if (typeof item === "number" || typeof item === "boolean") return String(item);
+          return "";
+        })
+        .filter(Boolean)
+        .join("; ")
+    : ""
+);
+
 export default function SolvePage() {
   const { profile, isAdmin, isPremium, loading: authLoading } = useAuth();
   const { isOnCooldown, isLimited, showWarning, remaining, recordQuestion, getCooldownTimeLeft } = useUsageLimit();
@@ -179,7 +192,7 @@ export default function SolvePage() {
 
       // Build a text summary from analysis to avoid re-sending the large image
       const analysisContext = analysis && !analysis.raw
-        ? `[Exercício analisado] Disciplina: ${analysis.disciplina || "N/A"}, Tema: ${analysis.tema || "N/A"}, Subtema: ${analysis.subtema || "N/A"}, Dados: ${(analysis.dados || []).join("; ")}, Incógnitas: ${(analysis.incognitas || []).join("; ")}, Fórmulas: ${(analysis.formulas || []).join("; ")}. Enunciado original: ${text || "(imagem)"}`
+        ? `[Exercício analisado] Disciplina: ${analysis.disciplina || "N/A"}, Tema: ${analysis.tema || "N/A"}, Subtema: ${analysis.subtema || "N/A"}, Dados: ${safeJoin(analysis.dados)}, Incógnitas: ${safeJoin(analysis.incognitas)}, Fórmulas: ${safeJoin(analysis.formulas)}. Enunciado original: ${text || "(imagem)"}`
         : text;
 
       // Step 2: Strategy - use text summary, no image

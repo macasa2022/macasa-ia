@@ -42,8 +42,18 @@ export default function StrategyThinkingCard({ data }: { data: Strategy }) {
           >
             <item.icon className="w-4 h-4 mt-0.5 shrink-0" />
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide mb-0.5">{item.label}</div>
-              <p className="text-sm leading-relaxed">{item.text}</p>
+              <div className="text-xs font-semibold uppercase tracking-wide mb-1">{item.label}</div>
+              <div className="text-sm leading-relaxed space-y-1">
+                {item.text!.split(/(?:\d+\.\s|\n)/).filter(Boolean).length > 1
+                  ? item.text!.split(/(?:\d+\.\s)/).filter(Boolean).map((point, idx) => (
+                      <p key={idx} className="flex gap-1.5">
+                        <span className="font-semibold shrink-0">{idx + 1}.</span>
+                        <span>{point.trim()}</span>
+                      </p>
+                    ))
+                  : <p>{item.text}</p>
+                }
+              </div>
             </div>
           </motion.div>
         ))}

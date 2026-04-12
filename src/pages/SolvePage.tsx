@@ -74,6 +74,9 @@ export default function SolvePage() {
     : enrolledSubject === "__none__" ? [] : subjects;
 
   const [exercise, setExercise] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [subject, setSubject] = useState(enrolledSubject && enrolledSubject !== "__none__" ? enrolledSubject : "");
   const [year, setYear] = useState(profile?.ano_escolar || "");
 
@@ -91,9 +94,39 @@ export default function SolvePage() {
   const [hasResult, setHasResult] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
 
+  const handleImageSelect = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Por favor, seleciona um ficheiro de imagem.");
+      return;
+    }
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => setImagePreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) handleImageSelect(file);
+        return;
+      }
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleSolve = async (exerciseText?: string) => {
     const text = exerciseText || exercise;
-    if (!text.trim()) { toast.error("Escreve um exercício primeiro."); return; }
+    if (!text.trim() && !imageFile) { toast.error("Escreve um exercício ou envia uma imagem."); return; }
 
     setLoading(true);
     setHasResult(false);
@@ -118,7 +151,8 @@ export default function SolvePage() {
         }
       }
 
-      const analysis = await solveExercise({ exercise: text, mode: "solve_analyze", year, subject });
+      const imgData = imagePreview || undefined;
+      const analysis = await solveExercise({ exercise: text, mode: "solve_analyze", year, subject, imageBase64: imgData });
       
       // Validate subject match for free-plan students
       if (enrolledSubject && analysis && !analysis.raw) {
@@ -135,14 +169,14 @@ export default function SolvePage() {
       
       setResult(prev => ({ ...prev, analysis }));
 
-      const strategy = await solveExercise({ exercise: text, mode: "solve_strategy", year, subject });
+      const strategy = await solveExercise({ exercise: text, mode: "solve_strategy", year, subject, imageBase64: imgData });
       setResult(prev => ({ ...prev, strategy }));
 
-      const solution = await solveExercise({ exercise: text, mode, year, subject });
+      const solution = await solveExercise({ exercise: text, mode, year, subject, imageBase64: imgData });
       setResult(prev => ({ ...prev, solution }));
 
       if (["solve_resolve", "solve_explain", "solve_professor"].includes(mode)) {
-        const practice = await solveExercise({ exercise: text, mode: "solve_practice", year, subject });
+        const practice = await solveExercise({ exercise: text, mode: "solve_practice", year, subject, imageBase64: imgData });
         setResult(prev => ({ ...prev, practice }));
       }
 
@@ -215,12 +249,21 @@ export default function SolvePage() {
         </div>
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-card rounded-xl border border-border/50 shadow-card overflow-hidden mb-6">
-          <textarea value={exercise} onChange={(e) => setExercise(e.target.value)}
+          <textarea value={exercise} onChange={(e) => setExercise(e.target.value)} onPaste={handlePaste}
             placeholder="Escreve ou cola aqui o teu exercício... Ex: Resolve a equação 3x + 5 = 20"
             className="w-full p-4 bg-transparent resize-none min-h-[120px] text-sm focus:outline-none placeholder:text-muted-foreground/50" rows={4} />
+          {imagePreview && (
+            <div className="px-4 pb-2">
+              <div className="relative inline-block">
+                <img src={imagePreview} alt="Imagem do exercício" className="max-h-32 rounded-lg border border-border" />
+                <button onClick={removeImage} className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs font-bold">✕</button>
+              </div>
+            </div>
+          )}
+          <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageSelect(f); }} />
           <div className="flex items-center justify-between p-3 border-t border-border/30">
-            <Button variant="outline" size="sm" className="text-xs gap-1.5"><Upload className="w-3.5 h-3.5" /> Imagem</Button>
-            <Button variant="hero" size="sm" onClick={() => handleSolve()} disabled={loading || !exercise.trim() || isOnCooldown || noSubjectAccess} className="gap-1.5">
+            <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => fileInputRef.current?.click()}><Upload className="w-3.5 h-3.5" /> Imagem</Button>
+            <Button variant="hero" size="sm" onClick={() => handleSolve()} disabled={loading || (!exercise.trim() && !imageFile) || isOnCooldown || noSubjectAccess} className="gap-1.5">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               {loading ? "A analisar…" : "Analisar Exercício"}
             </Button>

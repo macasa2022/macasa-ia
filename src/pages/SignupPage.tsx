@@ -58,7 +58,6 @@ export default function SignupPage() {
       toast.error(data?.error || "Erro ao enviar código de verificação. Tenta novamente.");
       return;
     }
-    }
     toast.success("Código enviado para o teu email!");
     setStep(-1); // -1 = OTP verification step
   };

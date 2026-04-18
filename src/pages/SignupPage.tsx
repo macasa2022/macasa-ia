@@ -281,7 +281,7 @@ export default function SignupPage() {
             <div>
               <Label htmlFor="password">Palavra-passe</Label>
               <div className="relative mt-1.5">
-                <Input id="password" type={showPw ? "text" : "password"} placeholder="Mínimo 6 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <Input id="password" type={showPw ? "text" : "password"} placeholder="Mínimo 8 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} />
                 <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowPw(!showPw)}>
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>

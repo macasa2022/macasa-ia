@@ -49,31 +49,15 @@ export default function SignupPage() {
       return;
     }
 
-    if (password.length < 6) {
-      toast.error("A palavra-passe deve ter pelo menos 6 caracteres.");
+    if (password.length < 8) {
+      toast.error("A palavra-passe deve ter pelo menos 8 caracteres.");
       return;
     }
 
     setLoading(true);
 
-    const { data: existingProfile, error: profileError } = await supabase
-      .from("profiles")
-      .select("user_id")
-      .eq("email", normalizedEmail)
-      .maybeSingle();
-
-    if (profileError) {
-      setLoading(false);
-      toast.error("Erro ao validar o email. Tenta novamente.");
-      return;
-    }
-
-    if (existingProfile) {
-      setLoading(false);
-      toast.error("Este email já está registado. Tenta iniciar sessão.");
-      return;
-    }
-
+    // Anti-enumeration: backend always returns generic success.
+    // The OTP is only actually sent if the email is available.
     const { data, error } = await supabase.functions.invoke("send-verification-code", {
       body: { email: normalizedEmail, action: "send" },
     });
@@ -81,15 +65,11 @@ export default function SignupPage() {
     setLoading(false);
 
     if (error || !data?.success) {
-      const serverMessage = data && typeof data === "object" && "error" in data ? data.error : undefined;
-      const fallbackMessage = error?.message === "FunctionsHttpError"
-        ? "Este email já está registado. Tenta iniciar sessão."
-        : "Erro ao enviar código de verificação. Tenta novamente.";
-      toast.error(typeof serverMessage === "string" ? serverMessage : fallbackMessage);
+      toast.error("Erro ao processar o pedido. Tenta novamente.");
       return;
     }
 
-    toast.success("Código enviado para o teu email!");
+    toast.success("Se este email estiver disponível, receberás um código em breve.");
     setStep(-1); // -1 = OTP verification step
   };
 
@@ -301,7 +281,7 @@ export default function SignupPage() {
             <div>
               <Label htmlFor="password">Palavra-passe</Label>
               <div className="relative mt-1.5">
-                <Input id="password" type={showPw ? "text" : "password"} placeholder="Mínimo 6 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <Input id="password" type={showPw ? "text" : "password"} placeholder="Mínimo 8 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} />
                 <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowPw(!showPw)}>
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>

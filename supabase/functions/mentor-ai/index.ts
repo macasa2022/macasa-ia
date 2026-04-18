@@ -216,6 +216,50 @@ serve(async (req) => {
       });
     }
 
+    // SERVER-SIDE QUOTA ENFORCEMENT (defense in depth)
+    // Use service role to read roles + usage without RLS interference
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { persistSession: false } }
+    );
+
+    const { data: isAdminData } = await adminClient.rpc("has_role", {
+      _user_id: user.id,
+      _role: "admin",
+    });
+    const isAdmin = !!isAdminData;
+
+    // Premium check via Stripe (cached lightweight call) — for now, only enforce
+    // free-tier quota; Premium users bypass via the same client-side path.
+    // Free users: 5 questions then 20h cooldown (mirrors client logic).
+    if (!isAdmin) {
+      const { data: usage } = await adminClient
+        .from("usage_tracking")
+        .select("question_count, cooldown_until")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (usage?.cooldown_until && new Date(usage.cooldown_until) > new Date()) {
+        // Check if user is premium before blocking
+        const { data: premiumCheck } = await adminClient.functions.invoke(
+          "check-subscription",
+          { headers: { Authorization: authHeader } }
+        );
+        if (!premiumCheck?.subscribed) {
+          return new Response(
+            JSON.stringify({
+              error: "Atingiste o limite de perguntas. Aguarda o fim do período de espera ou faz upgrade para Premium.",
+            }),
+            {
+              status: 429,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
+        }
+      }
+    }
+
     const { messages, mode, exercise, year, subject, imageBase64 } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");

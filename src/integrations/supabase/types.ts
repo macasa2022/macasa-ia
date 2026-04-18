@@ -133,28 +133,55 @@ export type Database = {
       }
       email_verification_codes: {
         Row: {
+          attempts: number
           code: string
           created_at: string
           email: string
           expires_at: string
           id: string
+          locked_until: string | null
           verified: boolean
         }
         Insert: {
+          attempts?: number
           code: string
           created_at?: string
           email: string
           expires_at?: string
           id?: string
+          locked_until?: string | null
           verified?: boolean
         }
         Update: {
+          attempts?: number
           code?: string
           created_at?: string
           email?: string
           expires_at?: string
           id?: string
+          locked_until?: string | null
           verified?: boolean
+        }
+        Relationships: []
+      }
+      otp_send_attempts: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          ip_address: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          ip_address?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          ip_address?: string | null
         }
         Relationships: []
       }

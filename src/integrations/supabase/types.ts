@@ -239,6 +239,54 @@ export type Database = {
         }
         Relationships: []
       }
+      subject_change_requests: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          current_subject: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          motivo: string | null
+          requested_subject: string
+          status: Database["public"]["Enums"]["subject_change_status"]
+          updated_at: string
+          user_email: string
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          current_subject: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          motivo?: string | null
+          requested_subject: string
+          status?: Database["public"]["Enums"]["subject_change_status"]
+          updated_at?: string
+          user_email: string
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          current_subject?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          motivo?: string | null
+          requested_subject?: string
+          status?: Database["public"]["Enums"]["subject_change_status"]
+          updated_at?: string
+          user_email?: string
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string
@@ -357,6 +405,7 @@ export type Database = {
         | "Contactado"
         | "Convertido"
         | "Rejeitado"
+      subject_change_status: "Pendente" | "Aprovado" | "Rejeitado"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -492,6 +541,7 @@ export const Constants = {
         "Convertido",
         "Rejeitado",
       ],
+      subject_change_status: ["Pendente", "Aprovado", "Rejeitado"],
     },
   },
 } as const

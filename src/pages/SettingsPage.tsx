@@ -160,13 +160,23 @@ export default function SettingsPage() {
                 </select>
               </div>
               <div>
-                <Label>{isPremium ? "Disciplinas" : "Disciplina escolhida"}</Label>
-                <div className="flex flex-wrap gap-2 mt-1.5">
-                  {disciplinasVisiveis.map(s => (
-                    <button key={s} onClick={() => toggleDisciplina(s)} className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${disciplinas.includes(s) ? "border-primary/30 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}>{s}</button>
-                  ))}
-                </div>
-                {!isPremium && <p className="text-xs text-muted-foreground mt-1">Plano gratuito: é mostrada apenas a disciplina escolhida no registo.</p>}
+                <Label>{isPremium ? "Disciplinas" : "Disciplina atual"}</Label>
+                {isPremium ? (
+                  <div className="flex flex-wrap gap-2 mt-1.5">
+                    {allDisciplinas.map(s => (
+                      <button key={s} onClick={() => toggleDisciplina(s)} className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${disciplinas.includes(s) ? "border-primary/30 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}>{s}</button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-1.5">
+                    <div className="inline-flex items-center px-3 py-1.5 rounded-full text-sm border border-primary/30 bg-primary/10 text-primary">
+                      {disciplinasSelecionadas[0] || "—"}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Para mudar de disciplina, submete um pedido formal a partir do <a href="/dashboard" className="text-primary hover:underline">Dashboard</a>.
+                    </p>
+                  </div>
+                )}
               </div>
               <Button variant="hero" onClick={handleSavePreferences} disabled={saving}>
                 {saving ? "A guardar..." : "Guardar preferências"}

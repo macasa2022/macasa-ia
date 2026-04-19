@@ -46,6 +46,7 @@ const HistoryPage = lazy(() => import("./pages/HistoryPage"));
 const PricingPage = lazy(() => import("./pages/PricingPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
+const UnsubscribePage = lazy(() => import("./pages/UnsubscribePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -78,6 +79,7 @@ const App = () => (
                 <Route path="/pricing" element={<PricingPage />} />
                 <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
                 <Route path="/admin" element={<ProtectedRoute adminOnly><AdminPage /></ProtectedRoute>} />
+                <Route path="/unsubscribe" element={<UnsubscribePage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>

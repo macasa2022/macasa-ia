@@ -37,27 +37,67 @@ export function ContactFormDialog({ open, onOpenChange }: ContactFormDialogProps
     }
 
     setSaving(true);
-    const { error } = await supabase.from("contact_requests").insert({
+    const requestId = crypto.randomUUID();
+    const payload = {
+      id: requestId,
       nome: nome.trim(),
-      email: email.trim(),
+      email: email.trim().toLowerCase(),
       escola: escola.trim(),
       telefone: telefone.trim() || null,
       mensagem: mensagem.trim() || null,
-    });
-    setSaving(false);
+    };
+
+    const { error } = await supabase.from("contact_requests").insert(payload);
 
     if (error) {
+      setSaving(false);
       toast.error("Erro ao enviar. Tenta novamente.");
       console.error(error);
-    } else {
-      toast.success("Pedido enviado com sucesso! Entraremos em contacto em breve.");
-      setNome("");
-      setEmail("");
-      setEscola("");
-      setTelefone("");
-      setMensagem("");
-      onOpenChange(false);
+      return;
     }
+
+    // Fire-and-forget emails — failure não deve bloquear o utilizador
+    const submittedAt = new Date().toLocaleString("pt-PT");
+    const notif = supabase.functions.invoke("send-transactional-email", {
+      body: {
+        templateName: "school-request-notification",
+        idempotencyKey: `school-notify-${requestId}`,
+        templateData: {
+          nome: payload.nome,
+          email: payload.email,
+          escola: payload.escola,
+          telefone: payload.telefone ?? "",
+          mensagem: payload.mensagem ?? "",
+          submittedAt,
+        },
+      },
+    });
+    const confirm = supabase.functions.invoke("send-transactional-email", {
+      body: {
+        templateName: "school-request-confirmation",
+        recipientEmail: payload.email,
+        idempotencyKey: `school-confirm-${requestId}`,
+        templateData: { nome: payload.nome, escola: payload.escola },
+      },
+    });
+
+    const results = await Promise.allSettled([notif, confirm]);
+    results.forEach((r, i) => {
+      if (r.status === "rejected") {
+        console.error(`[contact email ${i === 0 ? "notification" : "confirmation"}] failed`, r.reason);
+      } else if ((r.value as any)?.error) {
+        console.error(`[contact email ${i === 0 ? "notification" : "confirmation"}] error`, (r.value as any).error);
+      }
+    });
+
+    setSaving(false);
+    toast.success("Pedido enviado com sucesso! Entraremos em contacto em breve.");
+    setNome("");
+    setEmail("");
+    setEscola("");
+    setTelefone("");
+    setMensagem("");
+    onOpenChange(false);
   };
 
   return (

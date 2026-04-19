@@ -2,13 +2,15 @@ import AppLayout from "@/components/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Shield, Users, UserCheck, Clock, Search, Crown, Filter } from "lucide-react";
+import { Shield, Users, UserCheck, Clock, Search, Crown, Filter, Inbox } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ContactRequestsSection from "@/components/admin/ContactRequestsSection";
 import { toast } from "sonner";
 
 type ProfileWithRole = {
@@ -134,6 +136,13 @@ export default function AdminPage() {
           <p className="text-muted-foreground mb-6">Gestão de utilizadores e permissões.</p>
         </motion.div>
 
+        <Tabs defaultValue="users" className="w-full">
+          <TabsList className="mb-5">
+            <TabsTrigger value="users"><Users className="w-4 h-4 mr-2" />Utilizadores</TabsTrigger>
+            <TabsTrigger value="requests"><Inbox className="w-4 h-4 mr-2" />Pedidos Escola</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="users">
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {[
@@ -280,6 +289,12 @@ export default function AdminPage() {
             </table>
           </div>
         </div>
+          </TabsContent>
+
+          <TabsContent value="requests">
+            <ContactRequestsSection />
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );

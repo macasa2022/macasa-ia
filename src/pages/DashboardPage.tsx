@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
 import { Calculator, MessageCircle, TrendingUp, BookOpen, Flame, Target, Clock, Sparkles, ArrowRight, Award, BarChart3 } from "lucide-react";
 import { motion } from "framer-motion";
+import SubjectChangeCard from "@/components/SubjectChangeCard";
 
 const recentExercises = [
   { subject: "Matemática", topic: "Equações do 2º grau", time: "Há 2h", difficulty: "Médio" },
@@ -87,6 +88,11 @@ export default function DashboardPage() {
               <div className="text-xs text-muted-foreground">{s.label}</div>
             </motion.div>
           ))}
+        </div>
+
+        {/* Subject change card (only for free users) */}
+        <div className="mb-6">
+          <SubjectChangeCard />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -22,7 +22,10 @@ export type Database = {
           id: string
           mensagem: string | null
           nome: string
+          notas: string | null
+          status: Database["public"]["Enums"]["contact_request_status"]
           telefone: string | null
+          updated_at: string
         }
         Insert: {
           created_at?: string
@@ -31,7 +34,10 @@ export type Database = {
           id?: string
           mensagem?: string | null
           nome: string
+          notas?: string | null
+          status?: Database["public"]["Enums"]["contact_request_status"]
           telefone?: string | null
+          updated_at?: string
         }
         Update: {
           created_at?: string
@@ -40,7 +46,10 @@ export type Database = {
           id?: string
           mensagem?: string | null
           nome?: string
+          notas?: string | null
+          status?: Database["public"]["Enums"]["contact_request_status"]
           telefone?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -342,6 +351,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      contact_request_status:
+        | "Novo"
+        | "Em análise"
+        | "Contactado"
+        | "Convertido"
+        | "Rejeitado"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -470,6 +485,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      contact_request_status: [
+        "Novo",
+        "Em análise",
+        "Contactado",
+        "Convertido",
+        "Rejeitado",
+      ],
     },
   },
 } as const

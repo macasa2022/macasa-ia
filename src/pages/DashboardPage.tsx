@@ -17,9 +17,28 @@ const recommendations = [
   { subject: "Química", topic: "Estequiometria", reason: "Área com mais dificuldade" },
 ];
 
+const allSubjectsProgress = [
+  { name: "Matemática", progress: 65, exercises: 82, color: "bg-math" },
+  { name: "Física", progress: 42, exercises: 38, color: "bg-physics" },
+  { name: "Química", progress: 28, exercises: 27, color: "bg-chemistry" },
+];
+
 export default function DashboardPage() {
-  const { profile } = useAuth();
+  const { profile, isAdmin, isPremium } = useAuth();
   const displayName = profile?.nome?.trim() || "";
+
+  const isFreeUser = !isAdmin && !isPremium;
+  const enrolledSubjects = profile?.disciplinas_favoritas ?? [];
+
+  const visibleRecent = isFreeUser
+    ? recentExercises.filter(e => enrolledSubjects.includes(e.subject))
+    : recentExercises;
+  const visibleRecommendations = isFreeUser
+    ? recommendations.filter(r => enrolledSubjects.includes(r.subject))
+    : recommendations;
+  const visibleProgress = isFreeUser
+    ? allSubjectsProgress.filter(s => enrolledSubjects.includes(s.name))
+    : allSubjectsProgress;
 
   return (
     <AppLayout>
@@ -78,7 +97,9 @@ export default function DashboardPage() {
               <Link to="/history" className="text-sm text-primary hover:underline flex items-center gap-1">Ver tudo <ArrowRight className="w-3 h-3" /></Link>
             </div>
             <div className="space-y-3">
-              {recentExercises.map((e, i) => (
+              {visibleRecent.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">Sem dúvidas recentes.</p>
+              ) : visibleRecent.map((e, i) => (
                 <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
                   <div>
                     <div className="font-medium text-sm">{e.topic}</div>
@@ -94,7 +115,9 @@ export default function DashboardPage() {
           <div className="bg-card rounded-xl p-6 shadow-card border border-border/50">
             <h2 className="font-semibold text-lg flex items-center gap-2 mb-4"><Sparkles className="w-5 h-5 text-accent" /> Recomendações para ti</h2>
             <div className="space-y-3">
-              {recommendations.map((r, i) => (
+              {visibleRecommendations.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">Sem recomendações disponíveis.</p>
+              ) : visibleRecommendations.map((r, i) => (
                 <Link to="/solve" key={i} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group">
                   <div>
                     <div className="font-medium text-sm">{r.topic}</div>
@@ -110,11 +133,9 @@ export default function DashboardPage() {
           <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 lg:col-span-2">
             <h2 className="font-semibold text-lg flex items-center gap-2 mb-4"><BarChart3 className="w-5 h-5 text-muted-foreground" /> Progresso por disciplina</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[
-                { name: "Matemática", progress: 65, exercises: 82, color: "bg-math" },
-                { name: "Física", progress: 42, exercises: 38, color: "bg-physics" },
-                { name: "Química", progress: 28, exercises: 27, color: "bg-chemistry" },
-              ].map((s, i) => (
+              {visibleProgress.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6 md:col-span-3">Sem dados de progresso ainda.</p>
+              ) : visibleProgress.map((s, i) => (
                 <div key={i} className="p-4 rounded-lg bg-secondary/50">
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium text-sm">{s.name}</span>

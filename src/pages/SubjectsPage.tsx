@@ -41,29 +41,26 @@ function getYearLevel(anoEscolar: string | null | undefined): string | null {
 }
 
 export default function SubjectsPage() {
-  const { profile, user } = useAuth();
+  const { profile, isAdmin, isPremium } = useAuth();
   const [activeSubject, setActiveSubject] = useState(0);
 
-  const userPlan = String(
-    user?.app_metadata?.plan ??
-    user?.user_metadata?.plan ??
-    user?.app_metadata?.account_type ??
-    user?.user_metadata?.account_type ??
-    ""
-  ).toLowerCase();
-  const isPremium = userPlan.includes("premium") || userPlan.includes("escola") || userPlan.includes("school");
+  // Free users (not admin, not premium) are restricted to their single enrolled discipline.
+  const isFreeUser = !isAdmin && !isPremium;
 
   const userDisciplinas = profile?.disciplinas_favoritas?.filter(d =>
     subjectsData.some(s => s.name === d)
   ) || [];
 
+  // Free users with exactly 1 enrolled discipline see only that one.
+  // Free users with 0 or >1 disciplines see nothing (must fix profile).
+  // Premium/Admin see all disciplines.
   const visibleSubjects = useMemo(() => {
-    if (isPremium) return subjectsData;
-    if (userDisciplinas.length > 0) {
+    if (!isFreeUser) return subjectsData;
+    if (userDisciplinas.length === 1) {
       return subjectsData.filter(s => userDisciplinas.includes(s.name));
     }
-    return subjectsData;
-  }, [isPremium, userDisciplinas]);
+    return [];
+  }, [isFreeUser, userDisciplinas]);
 
   const userYearLevel = getYearLevel(profile?.ano_escolar);
 
@@ -71,9 +68,32 @@ export default function SubjectsPage() {
 
   const filteredYears = useMemo(() => {
     if (!s) return [];
-    if (isPremium || !userYearLevel) return Object.entries(s.years);
+    if (!isFreeUser || !userYearLevel) return Object.entries(s.years);
     return Object.entries(s?.years ?? {}).filter(([level]) => level === userYearLevel);
-  }, [isPremium, userYearLevel, s]);
+  }, [isFreeUser, userYearLevel, s]);
+
+  // Free user with no valid enrollment → empty state CTA
+  if (!s && isFreeUser) {
+    return (
+      <AppLayout>
+        <div className="p-6 md:p-8 max-w-3xl mx-auto">
+          <h1 className="text-2xl md:text-3xl font-bold mb-1">Disciplinas</h1>
+          <p className="text-muted-foreground mb-6">Explora tópicos por disciplina e ano escolar.</p>
+          <div className="bg-card rounded-xl border border-border/50 p-8 text-center">
+            <Lock className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+            <h2 className="font-semibold text-lg mb-2">Sem disciplina configurada</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              No plano gratuito tens acesso a uma disciplina. Vai a <strong>Definições</strong> e seleciona a tua disciplina, ou faz upgrade para Premium para acederes a todas.
+            </p>
+            <div className="flex gap-2 justify-center flex-wrap">
+              <Button variant="outline" asChild><Link to="/settings">Definições</Link></Button>
+              <Button variant="hero" asChild><Link to="/pricing">Ver planos</Link></Button>
+            </div>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   if (!s) return null;
 
@@ -120,7 +140,7 @@ export default function SubjectsPage() {
           </div>
         ))}
 
-        {!isPremium && (
+        {isFreeUser && (
           <motion.div className="mt-8 p-6 bg-card rounded-xl border border-border/50 text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <Lock className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
             <p className="text-sm text-muted-foreground mb-3">Queres aceder a todas as disciplinas e níveis? Faz upgrade para Premium.</p>

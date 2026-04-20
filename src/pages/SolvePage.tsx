@@ -74,13 +74,17 @@ export default function SolvePage() {
   const { profile, isAdmin, isPremium, loading: authLoading } = useAuth();
   const { isOnCooldown, isLimited, showWarning, remaining, recordQuestion, getCooldownTimeLeft } = useUsageLimit();
   
-  // For free non-admin users, lock to their enrolled discipline
-  // If a free user has no subjects or multiple (legacy), block access to all — they must fix their profile
+  // For free non-admin users, lock to their enrolled discipline.
+  // Filter the profile's subjects against the canonical list (handles legacy profiles
+  // with multiple/invalid entries) and pick the first valid one.
   const isFreeUser = !isAdmin && !isPremium;
-  const enrolledSubject = (isFreeUser && profile?.disciplinas_favoritas?.length === 1)
-    ? profile.disciplinas_favoritas[0]
-    : isFreeUser && profile ? "__none__" : null;
-  
+  const validEnrolled = (profile?.disciplinas_favoritas || []).filter((d) =>
+    subjects.some((s) => s.id === d)
+  );
+  const enrolledSubject = isFreeUser
+    ? (validEnrolled.length >= 1 ? validEnrolled[0] : (profile ? "__none__" : null))
+    : null;
+
   const noSubjectAccess = enrolledSubject === "__none__" && !authLoading;
   const visibleSubjects = enrolledSubject && enrolledSubject !== "__none__"
     ? subjects.filter(s => s.id === enrolledSubject)

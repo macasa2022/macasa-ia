@@ -56,8 +56,9 @@ export default function SubjectsPage() {
   // Premium/Admin see all disciplines.
   const visibleSubjects = useMemo(() => {
     if (!isFreeUser) return subjectsData;
-    if (userDisciplinas.length === 1) {
-      return subjectsData.filter(s => userDisciplinas.includes(s.name));
+    if (userDisciplinas.length >= 1) {
+      // Free plan = single subject. If profile has multiple (legacy), show only the first valid one.
+      return subjectsData.filter(s => s.name === userDisciplinas[0]);
     }
     return [];
   }, [isFreeUser, userDisciplinas]);

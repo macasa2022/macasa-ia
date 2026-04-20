@@ -5,6 +5,7 @@ import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { getPrimarySubject, getValidSubjects } from "@/lib/subjects";
 
 const subjectsData = [
   {
@@ -47,21 +48,20 @@ export default function SubjectsPage() {
   // Free users (not admin, not premium) are restricted to their single enrolled discipline.
   const isFreeUser = !isAdmin && !isPremium;
 
-  const userDisciplinas = profile?.disciplinas_favoritas?.filter(d =>
-    subjectsData.some(s => s.name === d)
-  ) || [];
+  const userDisciplinas = getValidSubjects(profile?.disciplinas_favoritas);
 
   // Free users with exactly 1 enrolled discipline see only that one.
   // Free users with 0 or >1 disciplines see nothing (must fix profile).
   // Premium/Admin see all disciplines.
   const visibleSubjects = useMemo(() => {
     if (!isFreeUser) return subjectsData;
-    if (userDisciplinas.length >= 1) {
+    const primarySubject = getPrimarySubject(profile?.disciplinas_favoritas);
+    if (primarySubject) {
       // Free plan = single subject. If profile has multiple (legacy), show only the first valid one.
-      return subjectsData.filter(s => s.name === userDisciplinas[0]);
+      return subjectsData.filter(s => s.name === primarySubject);
     }
     return [];
-  }, [isFreeUser, userDisciplinas]);
+  }, [isFreeUser, profile?.disciplinas_favoritas, userDisciplinas]);
 
   const userYearLevel = getYearLevel(profile?.ano_escolar);
 

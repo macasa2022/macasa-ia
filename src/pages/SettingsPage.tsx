@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
+import { CANONICAL_SUBJECTS, getPrimarySubject, getValidSubjects, normalizeSubjectName } from "@/lib/subjects";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("perfil");
@@ -23,8 +24,8 @@ export default function SettingsPage() {
   const [estiloExplicacao, setEstiloExplicacao] = useState("Simples e direto");
   const [disciplinas, setDisciplinas] = useState<string[]>([]);
 
-  const allDisciplinas = ["Matemática", "Física", "Química"];
-  const disciplinasSelecionadas = disciplinas.filter((d) => allDisciplinas.includes(d));
+  const allDisciplinas = [...CANONICAL_SUBJECTS];
+  const disciplinasSelecionadas = getValidSubjects(disciplinas);
   const disciplinasVisiveis = isPremium ? allDisciplinas : disciplinasSelecionadas;
 
   useEffect(() => {
@@ -33,7 +34,7 @@ export default function SettingsPage() {
       setEmail(profile.email || "");
       setAnoEscolar(profile.ano_escolar || "7º ano");
       setEstiloExplicacao(profile.estilo_explicacao || "Simples e direto");
-      setDisciplinas((profile.disciplinas_favoritas || []).filter((d) => allDisciplinas.includes(d)));
+      setDisciplinas(getValidSubjects(profile.disciplinas_favoritas));
     }
   }, [profile]);
 
@@ -68,7 +69,7 @@ export default function SettingsPage() {
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ estilo_explicacao: estiloExplicacao, disciplinas_favoritas: disciplinas, updated_at: new Date().toISOString() })
+      .update({ estilo_explicacao: estiloExplicacao, disciplinas_favoritas: getValidSubjects(disciplinas), updated_at: new Date().toISOString() })
       .eq("user_id", user.id);
     setSaving(false);
     if (error) {
@@ -95,7 +96,8 @@ export default function SettingsPage() {
   };
 
   const toggleDisciplina = (d: string) => {
-    setDisciplinas([d]);
+    const normalized = normalizeSubjectName(d);
+    if (normalized) setDisciplinas([normalized]);
   };
 
   const formatDate = (iso: string | null) => {
@@ -170,7 +172,7 @@ export default function SettingsPage() {
                 ) : (
                   <div className="mt-1.5">
                     <div className="inline-flex items-center px-3 py-1.5 rounded-full text-sm border border-primary/30 bg-primary/10 text-primary">
-                      {disciplinasSelecionadas[0] || "—"}
+                      {getPrimarySubject(disciplinasSelecionadas) || "—"}
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
                       Para mudar de disciplina, submete um pedido formal a partir do <a href="/dashboard" className="text-primary hover:underline">Dashboard</a>.

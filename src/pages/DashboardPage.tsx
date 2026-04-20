@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { Calculator, MessageCircle, TrendingUp, BookOpen, Flame, Target, Clock, Sparkles, ArrowRight, Award, BarChart3 } from "lucide-react";
 import { motion } from "framer-motion";
 import SubjectChangeCard from "@/components/SubjectChangeCard";
+import { getPrimarySubject } from "@/lib/subjects";
 
 const recentExercises = [
   { subject: "Matemática", topic: "Equações do 2º grau", time: "Há 2h", difficulty: "Médio" },
@@ -29,16 +30,16 @@ export default function DashboardPage() {
   const displayName = profile?.nome?.trim() || "";
 
   const isFreeUser = !isAdmin && !isPremium;
-  const enrolledSubjects = profile?.disciplinas_favoritas ?? [];
+  const enrolledSubject = getPrimarySubject(profile?.disciplinas_favoritas);
 
   const visibleRecent = isFreeUser
-    ? recentExercises.filter(e => enrolledSubjects.includes(e.subject))
+    ? recentExercises.filter(e => e.subject === enrolledSubject)
     : recentExercises;
   const visibleRecommendations = isFreeUser
-    ? recommendations.filter(r => enrolledSubjects.includes(r.subject))
+    ? recommendations.filter(r => r.subject === enrolledSubject)
     : recommendations;
   const visibleProgress = isFreeUser
-    ? allSubjectsProgress.filter(s => enrolledSubjects.includes(s.name))
+    ? allSubjectsProgress.filter(s => s.name === enrolledSubject)
     : allSubjectsProgress;
 
   return (

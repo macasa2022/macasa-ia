@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Mail, Clock, CheckCircle2, XCircle } from "lucide-react";
 import SubjectChangeRequestDialog from "./SubjectChangeRequestDialog";
+import { getPrimarySubject } from "@/lib/subjects";
 
 const SUPPORT_EMAIL = "suporte@logicpathways.online";
 
@@ -14,7 +15,7 @@ export default function SubjectChangeCard() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const isFree = !isAdmin && !isPremium;
-  const currentSubject = profile?.disciplinas_favoritas?.[0] || "—";
+  const currentSubject = getPrimarySubject(profile?.disciplinas_favoritas) || "—";
 
   const { data: latestRequest, refetch } = useQuery({
     queryKey: ["my-latest-subject-change", user?.id],

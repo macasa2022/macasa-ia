@@ -17,6 +17,7 @@ import ValidationSummaryCard from "@/components/solve/ValidationSummaryCard";
 import PracticeNextCard from "@/components/solve/PracticeNextCard";
 import HintInteractionCard from "@/components/solve/HintInteractionCard";
 import ProfessorModeBlock from "@/components/solve/ProfessorModeBlock";
+import { getPrimarySubject, normalizeSubjectName } from "@/lib/subjects";
 
 const subjects = [
   { id: "Matemática", icon: BookOpen, color: "text-blue-600 dark:text-blue-400" },
@@ -78,11 +79,8 @@ export default function SolvePage() {
   // Filter the profile's subjects against the canonical list (handles legacy profiles
   // with multiple/invalid entries) and pick the first valid one.
   const isFreeUser = !isAdmin && !isPremium;
-  const validEnrolled = (profile?.disciplinas_favoritas || []).filter((d) =>
-    subjects.some((s) => s.id === d)
-  );
   const enrolledSubject = isFreeUser
-    ? (validEnrolled.length >= 1 ? validEnrolled[0] : (profile ? "__none__" : null))
+    ? (getPrimarySubject(profile?.disciplinas_favoritas) ?? (profile ? "__none__" : null))
     : null;
 
   const noSubjectAccess = enrolledSubject === "__none__" && !authLoading;
@@ -180,11 +178,10 @@ export default function SolvePage() {
       }
       
       // Validate subject match for free-plan students
-      if (enrolledSubject && analysis && !analysis.raw) {
+      if (enrolledSubject && enrolledSubject !== "__none__" && analysis && !analysis.raw) {
         const detectedSubject = analysis.disciplina || analysis.subject || "";
-        const normalizedDetected = detectedSubject.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const normalizedEnrolled = enrolledSubject.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        if (normalizedDetected && !normalizedDetected.includes(normalizedEnrolled) && !normalizedEnrolled.includes(normalizedDetected)) {
+        const normalizedDetected = normalizeSubjectName(detectedSubject);
+        if (normalizedDetected && normalizedDetected !== enrolledSubject) {
           toast.error(`Só podes resolver exercícios de ${enrolledSubject}. O exercício introduzido parece ser de ${detectedSubject}.`);
           setLoading(false);
           clearInterval(interval);

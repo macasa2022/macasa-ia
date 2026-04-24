@@ -40,6 +40,10 @@ export default function ContactRequestsSection() {
   const [selected, setSelected] = useState<ContactRequest | null>(null);
   const [editNotas, setEditNotas] = useState("");
   const [saving, setSaving] = useState(false);
+  const [convertingFor, setConvertingFor] = useState<ContactRequest | null>(null);
+  const [convertSchoolName, setConvertSchoolName] = useState("");
+  const [convertEmails, setConvertEmails] = useState("");
+  const [converting, setConverting] = useState(false);
 
   const { data: requests = [], isLoading, refetch } = useQuery({
     queryKey: ["contact-requests"],
@@ -69,7 +73,58 @@ export default function ContactRequestsSection() {
     return acc;
   }, { "Novo": 0, "Em análise": 0, "Contactado": 0, "Convertido": 0, "Rejeitado": 0 });
 
+  const openConvertModal = (request: ContactRequest) => {
+    setConvertingFor(request);
+    setConvertSchoolName(request.escola);
+    setConvertEmails("");
+  };
+
+  const submitConvert = async () => {
+    if (!convertingFor) return;
+    const emails = convertEmails
+      .split(/[\s,;]+/)
+      .map((e) => e.trim())
+      .filter(Boolean);
+    if (emails.length === 0) {
+      toast.error("Adiciona pelo menos um email de aluno");
+      return;
+    }
+    if (!convertSchoolName.trim()) {
+      toast.error("Nome da escola obrigatório");
+      return;
+    }
+    setConverting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("convert-school-client", {
+        body: {
+          action: "create",
+          contact_request_id: convertingFor.id,
+          school_name: convertSchoolName.trim(),
+          emails,
+        },
+      });
+      if (error || data?.error) throw new Error(data?.error || error?.message || "Erro");
+      const invalid = (data?.invalid_emails || []).length;
+      toast.success(
+        `Escola convertida: ${data?.inserted_count} alunos com acesso (${data?.linked_existing_users} já registados${invalid ? `, ${invalid} emails inválidos` : ""}).`,
+      );
+      setConvertingFor(null);
+      setSelected(null);
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao converter escola");
+    } finally {
+      setConverting(false);
+    }
+  };
+
   const updateStatus = async (id: string, newStatus: Status) => {
+    // Intercept "Convertido": open conversion modal instead of updating directly
+    if (newStatus === "Convertido") {
+      const req = requests.find((r) => r.id === id);
+      if (req) openConvertModal(req);
+      return;
+    }
     const { error } = await supabase
       .from("contact_requests")
       .update({ status: newStatus })

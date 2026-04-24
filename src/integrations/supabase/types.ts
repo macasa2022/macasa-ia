@@ -239,6 +239,79 @@ export type Database = {
         }
         Relationships: []
       }
+      school_clients: {
+        Row: {
+          contact_request_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_request_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_request_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_clients_contact_request_id_fkey"
+            columns: ["contact_request_id"]
+            isOneToOne: false
+            referencedRelation: "contact_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      school_premium_members: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          email: string
+          id: string
+          school_client_id: string
+          user_id: string | null
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          school_client_id: string
+          user_id?: string | null
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          school_client_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_premium_members_school_client_id_fkey"
+            columns: ["school_client_id"]
+            isOneToOne: false
+            referencedRelation: "school_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subject_change_requests: {
         Row: {
           admin_notes: string | null
@@ -379,6 +452,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_school_premium: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
           dlq_name: string

@@ -125,12 +125,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await fetchProfile(session.user.id);
             await checkAdmin(session.user.id);
             await checkSubscription();
+            await checkSchoolPremium(session.user.id);
             setLoading(false);
           }, 0);
         } else {
           setProfile(null);
           setIsAdmin(false);
-          setIsPremium(false);
+          setIsStripePremium(false);
+          setIsSchoolPremium(false);
           setSubscriptionEnd(null);
           setLoading(false);
         }
@@ -144,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fetchProfile(session.user.id);
         checkAdmin(session.user.id);
         checkSubscription();
+        checkSchoolPremium(session.user.id);
       }
       setLoading(false);
     });
@@ -157,12 +160,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setProfile(null);
     setIsAdmin(false);
-    setIsPremium(false);
+    setIsStripePremium(false);
+    setIsSchoolPremium(false);
     setSubscriptionEnd(null);
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, isAdmin, isPremium, subscriptionEnd, loading, signOut, refreshProfile, checkSubscription }}>
+    <AuthContext.Provider value={{ session, user, profile, isAdmin, isPremium, isSchoolPremium, subscriptionEnd, loading, signOut, refreshProfile, checkSubscription }}>
       {children}
     </AuthContext.Provider>
   );

@@ -50,9 +50,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isPremium, setIsPremium] = useState(false);
+  const [isStripePremium, setIsStripePremium] = useState(false);
+  const [isSchoolPremium, setIsSchoolPremium] = useState(false);
   const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const isPremium = isStripePremium || isSchoolPremium;
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase

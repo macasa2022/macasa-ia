@@ -2,7 +2,7 @@ import AppLayout from "@/components/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Shield, Users, UserCheck, Clock, Search, Crown, Filter, Inbox, BookOpen } from "lucide-react";
+import { Shield, Users, UserCheck, Clock, Search, Crown, Filter, Inbox, BookOpen, School } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ContactRequestsSection from "@/components/admin/ContactRequestsSection";
 import SubjectChangeRequestsSection from "@/components/admin/SubjectChangeRequestsSection";
+import SchoolClientsSection from "@/components/admin/SchoolClientsSection";
 import { toast } from "sonner";
 
 type ProfileWithRole = {

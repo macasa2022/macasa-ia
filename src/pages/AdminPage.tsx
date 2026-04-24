@@ -299,6 +299,10 @@ export default function AdminPage() {
             <ContactRequestsSection />
           </TabsContent>
 
+          <TabsContent value="schools">
+            <SchoolClientsSection />
+          </TabsContent>
+
           <TabsContent value="subject-changes">
             <SubjectChangeRequestsSection />
           </TabsContent>

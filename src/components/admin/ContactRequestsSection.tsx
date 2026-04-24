@@ -330,6 +330,58 @@ export default function ContactRequestsSection() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Conversion modal: paste student emails */}
+      <Dialog open={!!convertingFor} onOpenChange={(open) => !open && !converting && setConvertingFor(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <School className="w-5 h-5 text-primary" />
+              Converter em cliente
+            </DialogTitle>
+            <DialogDescription>
+              Indica os emails dos alunos da escola. Todos passarão a ter acesso completo às 3 disciplinas (estatuto Premium-escola). Quando se registarem, serão automaticamente associados.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Nome da escola</label>
+              <Input
+                value={convertSchoolName}
+                onChange={(e) => setConvertSchoolName(e.target.value)}
+                placeholder="Ex: Escola Secundária X"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                Emails dos alunos (um por linha, ou separados por vírgula)
+              </label>
+              <Textarea
+                rows={8}
+                value={convertEmails}
+                onChange={(e) => setConvertEmails(e.target.value)}
+                placeholder={"aluno1@escola.pt\naluno2@escola.pt\n..."}
+                className="font-mono text-xs"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Emails inválidos ou duplicados serão ignorados automaticamente.
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setConvertingFor(null)} disabled={converting}>
+                Cancelar
+              </Button>
+              <Button variant="hero" className="flex-1" onClick={submitConvert} disabled={converting}>
+                {converting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                Converter e ativar acesso
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

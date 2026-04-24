@@ -21,6 +21,7 @@ type AuthContextType = {
   profile: Profile | null;
   isAdmin: boolean;
   isPremium: boolean;
+  isSchoolPremium: boolean;
   subscriptionEnd: string | null;
   loading: boolean;
   signOut: () => Promise<void>;
@@ -34,6 +35,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   isAdmin: false,
   isPremium: false,
+  isSchoolPremium: false,
   subscriptionEnd: null,
   loading: true,
   signOut: async () => {},

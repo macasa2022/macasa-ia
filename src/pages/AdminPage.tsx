@@ -139,9 +139,10 @@ export default function AdminPage() {
         </motion.div>
 
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className="mb-5">
+          <TabsList className="mb-5 flex-wrap h-auto">
             <TabsTrigger value="users"><Users className="w-4 h-4 mr-2" />Utilizadores</TabsTrigger>
             <TabsTrigger value="requests"><Inbox className="w-4 h-4 mr-2" />Pedidos Escola</TabsTrigger>
+            <TabsTrigger value="schools"><School className="w-4 h-4 mr-2" />Escolas Cliente</TabsTrigger>
             <TabsTrigger value="subject-changes"><BookOpen className="w-4 h-4 mr-2" />Mudança Disciplina</TabsTrigger>
           </TabsList>
 

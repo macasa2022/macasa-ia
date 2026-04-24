@@ -21,6 +21,7 @@ type AuthContextType = {
   profile: Profile | null;
   isAdmin: boolean;
   isPremium: boolean;
+  isSchoolPremium: boolean;
   subscriptionEnd: string | null;
   loading: boolean;
   signOut: () => Promise<void>;
@@ -34,6 +35,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   isAdmin: false,
   isPremium: false,
+  isSchoolPremium: false,
   subscriptionEnd: null,
   loading: true,
   signOut: async () => {},
@@ -48,9 +50,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isPremium, setIsPremium] = useState(false);
+  const [isStripePremium, setIsStripePremium] = useState(false);
+  const [isSchoolPremium, setIsSchoolPremium] = useState(false);
   const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const isPremium = isStripePremium || isSchoolPremium;
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
@@ -76,10 +81,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error("Error checking subscription:", error);
         return;
       }
-      setIsPremium(!!data?.subscribed);
+      setIsStripePremium(!!data?.subscribed);
       setSubscriptionEnd(data?.subscription_end || null);
     } catch (err) {
       console.error("Error checking subscription:", err);
+    }
+  };
+
+  const checkSchoolPremium = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("school_premium_members")
+        .select("id")
+        .eq("user_id", userId)
+        .limit(1)
+        .maybeSingle();
+      if (error) {
+        console.error("Error checking school premium:", error);
+        return;
+      }
+      setIsSchoolPremium(!!data);
+    } catch (err) {
+      console.error("Error checking school premium:", err);
     }
   };
 
@@ -88,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await fetchProfile(user.id);
       await checkAdmin(user.id);
       await checkSubscription();
+      await checkSchoolPremium(user.id);
     }
   };
 
@@ -101,12 +125,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await fetchProfile(session.user.id);
             await checkAdmin(session.user.id);
             await checkSubscription();
+            await checkSchoolPremium(session.user.id);
             setLoading(false);
           }, 0);
         } else {
           setProfile(null);
           setIsAdmin(false);
-          setIsPremium(false);
+          setIsStripePremium(false);
+          setIsSchoolPremium(false);
           setSubscriptionEnd(null);
           setLoading(false);
         }
@@ -120,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fetchProfile(session.user.id);
         checkAdmin(session.user.id);
         checkSubscription();
+        checkSchoolPremium(session.user.id);
       }
       setLoading(false);
     });
@@ -133,12 +160,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setProfile(null);
     setIsAdmin(false);
-    setIsPremium(false);
+    setIsStripePremium(false);
+    setIsSchoolPremium(false);
     setSubscriptionEnd(null);
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, isAdmin, isPremium, subscriptionEnd, loading, signOut, refreshProfile, checkSubscription }}>
+    <AuthContext.Provider value={{ session, user, profile, isAdmin, isPremium, isSchoolPremium, subscriptionEnd, loading, signOut, refreshProfile, checkSubscription }}>
       {children}
     </AuthContext.Provider>
   );

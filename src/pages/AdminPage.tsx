@@ -2,7 +2,7 @@ import AppLayout from "@/components/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Shield, Users, UserCheck, Clock, Search, Crown, Filter, Inbox, BookOpen } from "lucide-react";
+import { Shield, Users, UserCheck, Clock, Search, Crown, Filter, Inbox, BookOpen, School } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ContactRequestsSection from "@/components/admin/ContactRequestsSection";
 import SubjectChangeRequestsSection from "@/components/admin/SubjectChangeRequestsSection";
+import SchoolClientsSection from "@/components/admin/SchoolClientsSection";
 import { toast } from "sonner";
 
 type ProfileWithRole = {
@@ -138,9 +139,10 @@ export default function AdminPage() {
         </motion.div>
 
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className="mb-5">
+          <TabsList className="mb-5 flex-wrap h-auto">
             <TabsTrigger value="users"><Users className="w-4 h-4 mr-2" />Utilizadores</TabsTrigger>
             <TabsTrigger value="requests"><Inbox className="w-4 h-4 mr-2" />Pedidos Escola</TabsTrigger>
+            <TabsTrigger value="schools"><School className="w-4 h-4 mr-2" />Escolas Cliente</TabsTrigger>
             <TabsTrigger value="subject-changes"><BookOpen className="w-4 h-4 mr-2" />Mudança Disciplina</TabsTrigger>
           </TabsList>
 
@@ -295,6 +297,10 @@ export default function AdminPage() {
 
           <TabsContent value="requests">
             <ContactRequestsSection />
+          </TabsContent>
+
+          <TabsContent value="schools">
+            <SchoolClientsSection />
           </TabsContent>
 
           <TabsContent value="subject-changes">

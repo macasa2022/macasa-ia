@@ -81,10 +81,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error("Error checking subscription:", error);
         return;
       }
-      setIsPremium(!!data?.subscribed);
+      setIsStripePremium(!!data?.subscribed);
       setSubscriptionEnd(data?.subscription_end || null);
     } catch (err) {
       console.error("Error checking subscription:", err);
+    }
+  };
+
+  const checkSchoolPremium = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("school_premium_members")
+        .select("id")
+        .eq("user_id", userId)
+        .limit(1)
+        .maybeSingle();
+      if (error) {
+        console.error("Error checking school premium:", error);
+        return;
+      }
+      setIsSchoolPremium(!!data);
+    } catch (err) {
+      console.error("Error checking school premium:", err);
     }
   };
 
@@ -93,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await fetchProfile(user.id);
       await checkAdmin(user.id);
       await checkSubscription();
+      await checkSchoolPremium(user.id);
     }
   };
 

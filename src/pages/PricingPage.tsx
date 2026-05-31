@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ContactFormDialog } from "@/components/ContactFormDialog";
+import { Seo } from "@/components/Seo";
 
 const plans = [
   {

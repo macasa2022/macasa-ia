@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { Seo } from "@/components/Seo";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -423,6 +424,11 @@ function FooterSection() {
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
+      <Seo
+        title="MACASA IA — Resolve Matemática, Física e Química passo a passo"
+        description="Aprende a pensar, não apenas a responder. Tutor IA, resolução guiada de exercícios e planos de estudo personalizados para alunos do 7.º ao 12.º ano."
+        path="/"
+      />
       <Navbar />
       <HeroSection />
       <BenefitsSection />

@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Seo } from "@/components/Seo";
 
 const years = ["7º ano", "8º ano", "9º ano", "10º ano", "11º ano", "12º ano"];
 const subjects = ["Matemática", "Física", "Química"];

@@ -74,6 +74,11 @@ export default function PricingPage() {
 
   return (
     <AppLayout>
+      <Seo
+        title="Preços — MACASA IA | Plano Gratuito, Premium e Escola"
+        description="Compara os planos do MACASA IA: gratuito para experimentar, Premium (9,99 €/mês) com todas as disciplinas e plano Escola para turmas."
+        path="/pricing"
+      />
       <div className="p-6 md:p-8 max-w-5xl mx-auto">
         <motion.div className="text-center mb-10" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-2xl md:text-3xl font-bold mb-2">Planos e Preços</h1>

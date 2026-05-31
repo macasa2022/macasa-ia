@@ -364,6 +364,11 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <Seo
+        title="Criar conta — MACASA IA | Plano gratuito"
+        description="Cria a tua conta MACASA IA em segundos e começa a resolver exercícios de Matemática, Física e Química com explicações passo a passo geradas por IA."
+        path="/signup"
+      />
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-6">

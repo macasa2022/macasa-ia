@@ -30,7 +30,7 @@ function Navbar() {
           <Button variant="ghost" asChild><Link to="/login">Entrar</Link></Button>
           <Button variant="hero" asChild><Link to="/signup">Começar grátis</Link></Button>
         </div>
-        <button className="md:hidden text-foreground" onClick={() => setOpen(!open)}>
+        <button className="md:hidden text-foreground" onClick={() => setOpen(!open)} aria-label={open ? "Fechar menu" : "Abrir menu"} aria-expanded={open}>
           {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
       </div>

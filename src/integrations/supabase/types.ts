@@ -24,6 +24,7 @@ export type Database = {
           nome: string
           notas: string | null
           status: Database["public"]["Enums"]["contact_request_status"]
+          submitted_by: string | null
           telefone: string | null
           updated_at: string
         }
@@ -36,6 +37,7 @@ export type Database = {
           nome: string
           notas?: string | null
           status?: Database["public"]["Enums"]["contact_request_status"]
+          submitted_by?: string | null
           telefone?: string | null
           updated_at?: string
         }
@@ -48,6 +50,7 @@ export type Database = {
           nome?: string
           notas?: string | null
           status?: Database["public"]["Enums"]["contact_request_status"]
+          submitted_by?: string | null
           telefone?: string | null
           updated_at?: string
         }

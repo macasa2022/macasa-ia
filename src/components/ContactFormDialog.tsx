@@ -36,6 +36,16 @@ export function ContactFormDialog({ open, onOpenChange }: ContactFormDialogProps
       return;
     }
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("Precisas de ter sessão iniciada para enviar o pedido.");
+      return;
+    }
+    if (email.trim().toLowerCase() !== (user.email ?? "").toLowerCase()) {
+      toast.error("O email tem de coincidir com o email da tua conta.");
+      return;
+    }
+
     setSaving(true);
     const requestId = crypto.randomUUID();
     const payload = {
@@ -45,9 +55,11 @@ export function ContactFormDialog({ open, onOpenChange }: ContactFormDialogProps
       escola: escola.trim(),
       telefone: telefone.trim() || null,
       mensagem: mensagem.trim() || null,
+      submitted_by: user.id,
     };
 
     const { error } = await supabase.from("contact_requests").insert(payload);
+
 
     if (error) {
       setSaving(false);

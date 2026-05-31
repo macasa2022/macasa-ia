@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Seo } from "@/components/Seo";
 
 const years = ["7º ano", "8º ano", "9º ano", "10º ano", "11º ano", "12º ano"];
 const subjects = ["Matemática", "Física", "Química"];
@@ -282,7 +283,7 @@ export default function SignupPage() {
               <Label htmlFor="password">Palavra-passe</Label>
               <div className="relative mt-1.5">
                 <Input id="password" type={showPw ? "text" : "password"} placeholder="Mínimo 8 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} />
-                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowPw(!showPw)}>
+                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowPw(!showPw)} aria-label={showPw ? "Ocultar palavra-passe" : "Mostrar palavra-passe"} aria-pressed={showPw}>
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
@@ -363,6 +364,11 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <Seo
+        title="Criar conta — MACASA IA | Plano gratuito"
+        description="Cria a tua conta MACASA IA em segundos e começa a resolver exercícios de Matemática, Física e Química com explicações passo a passo geradas por IA."
+        path="/signup"
+      />
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-6">

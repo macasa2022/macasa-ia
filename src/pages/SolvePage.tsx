@@ -294,7 +294,7 @@ export default function SolvePage() {
             <div className="px-4 pb-2">
               <div className="relative inline-block">
                 <img src={imagePreview} alt="Imagem do exercício" className="max-h-32 rounded-lg border border-border" />
-                <button onClick={removeImage} className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs font-bold">✕</button>
+                <button onClick={removeImage} aria-label="Remover imagem" className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs font-bold"><span aria-hidden="true">✕</span></button>
               </div>
             </div>
           )}

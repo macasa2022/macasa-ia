@@ -1,0 +1,15 @@
+# MACASA IA
+
+> Plataforma educativa portuguesa de IA que ajuda alunos do 7.º ao 12.º ano a resolver exercícios de Matemática, Física e Química com explicações passo a passo, tutor conversacional e planos de estudo personalizados.
+
+MACASA IA disponibiliza resolução guiada de exercícios (texto e imagem), um tutor IA cross-subject, biblioteca de matéria, planos de estudo inteligentes e histórico de resoluções. Há um plano gratuito limitado e um plano Premium para alunos individuais e escolas.
+
+## Pages
+
+- [Página inicial](/): Visão geral do produto, funcionalidades e disciplinas suportadas.
+- [Preços](/pricing): Planos Gratuito, Premium (9,99 €/mês) e Escola.
+
+## Optional
+
+- [Iniciar sessão](/login): Acesso à conta existente.
+- [Criar conta](/signup): Registo de aluno com verificação por OTP.

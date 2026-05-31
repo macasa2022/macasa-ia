@@ -6,6 +6,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Brain, Eye, EyeOff, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Seo } from "@/components/Seo";
 
 export default function LoginPage() {
   const [showPw, setShowPw] = useState(false);
@@ -28,6 +29,11 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <Seo
+        title="Entrar — MACASA IA"
+        description="Acede à tua conta MACASA IA para continuar a resolver exercícios de Matemática, Física e Química com explicações passo a passo."
+        path="/login"
+      />
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
@@ -49,7 +55,7 @@ export default function LoginPage() {
               <Label htmlFor="password">Palavra-passe</Label>
               <div className="relative mt-1.5">
                 <Input id="password" type={showPw ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowPw(!showPw)}>
+                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowPw(!showPw)} aria-label={showPw ? "Ocultar palavra-passe" : "Mostrar palavra-passe"} aria-pressed={showPw}>
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>

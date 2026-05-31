@@ -53,10 +53,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         </nav>
         <div className="p-3 border-t border-border space-y-1">
-          <button onClick={() => setCollapsed(!collapsed)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground w-full transition-colors">
+          <button onClick={() => setCollapsed(!collapsed)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground w-full transition-colors" aria-label={collapsed ? "Expandir barra lateral" : "Minimizar barra lateral"} aria-pressed={collapsed}>
             {collapsed ? <ChevronRight className="w-5 h-5" /> : <><ChevronLeft className="w-5 h-5" /><span>Minimizar</span></>}
           </button>
-          <button onClick={handleSignOut} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground w-full ${collapsed ? "justify-center" : ""}`}>
+          <button onClick={handleSignOut} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground w-full ${collapsed ? "justify-center" : ""}`} aria-label="Terminar sessão">
             <LogOut className="w-5 h-5 shrink-0" />
             {!collapsed && <span>Sair</span>}
           </button>

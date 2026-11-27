@@ -84,7 +84,24 @@ ANTHROPIC_MODEL=claude-opus-5-5      # ou claude-fable-5-2
 Reinicia `npx supabase functions serve` (Ctrl+C e volta a correr). Para voltar ao Ollama:
 `AI_PROVIDER=ollama`. Atenção: o Claude é pago por utilização.
 
-## 6. Stripe (opcional) — Premium por fatura mensal (cartão ou MB WAY)
+## 6. Comparar modelos de IA (um só comando)
+
+Com o Ollama aberto (não é preciso o Supabase nem o site):
+
+```powershell
+npm run avaliar:modelos
+```
+
+Testa **todos os modelos instalados** (exceto embeddings) com os mesmos prompts, limites e fluxo da
+aplicação: Resolver em 4 passos (Matemática, Física e exercício por foto) e Tutor. Mede a carga, a parte
+na GPU, o tempo e os tokens/s de cada passo, se o JSON é válido, se a resposta está certa, cortes,
+passos acima do limite de 400 s, sinais de PT-PT vs PT-BR e fórmulas estragadas.
+O relatório fica em `relatorios-modelos\<data>.md` (fora do git), com as respostas completas.
+
+Opções: `npm run avaliar:modelos -- --modelos gemma4:e2b,qwen3.5:4b-q4_K_M` (só esses) e
+`-- --claude` (inclui o Claude do `.env`; é pago). Com modelos grandes numa GPU de 4 GB pode demorar.
+
+## 7. Stripe (opcional) — Premium por fatura mensal (cartão ou MB WAY)
 
 Como funciona: ao clicar em «Começar Premium» abre-se uma janela com a fatura do Stripe,
 onde o aluno paga com **cartão ou MB WAY**. Todos os meses o Stripe emite e envia por email

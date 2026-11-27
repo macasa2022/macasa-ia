@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { AIError, completeText, streamOpenAICompatible } from "../_shared/anthropic.ts";
+import { AIError, completeText, streamOpenAICompatible } from "../_shared/ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -242,6 +242,7 @@ function aiErrorResponse(err: unknown) {
   if (err instanceof AIError) {
     if (err.status === 429) return json("Demasiados pedidos. Aguarda um momento.", 429);
     if (err.status === 402) return json("Créditos esgotados.", 402);
+    if (err.status === 503) return json("A IA local não está disponível. Confirma que o Ollama está aberto.", 503);
   }
   console.error("AI error:", err);
   return json("Erro na IA", 500);
@@ -398,7 +399,7 @@ serve(async (req) => {
         content = await completeText([
           { role: "system", content: systemPrompt },
           { role: "user", content: `Histórico recente (mais recente primeiro):\n${history}` },
-        ], 3000);
+        ], 3000, true);
       } catch (err) {
         return aiErrorResponse(err);
       }
@@ -464,7 +465,7 @@ serve(async (req) => {
 
       let content: string;
       try {
-        content = (await completeText(aiMessages as any, 4096)) || "{}";
+        content = (await completeText(aiMessages as any, 4096, true)) || "{}";
       } catch (err) {
         return aiErrorResponse(err);
       }

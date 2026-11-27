@@ -1,4 +1,35 @@
-project_id = "yacsmuthhesgphtvejgr"
+# MACASA IA — Supabase local (npx supabase start)
+# Portas próprias (família 5432x) para correr ao mesmo tempo que o Respondo (5542x)
+# e o METAMORFOSE (5532x). O Supabase só lê este ficheiro ao arrancar:
+# depois de mudar algo aqui, fazer `npx supabase stop` e `npx supabase start`.
+project_id = "macasa-ia"
+
+[api]
+port = 54321
+
+[db]
+port = 54322
+shadow_port = 54320
+
+[db.pooler]
+port = 54329
+
+[studio]
+port = 54323
+
+[inbucket]
+port = 54324
+
+[analytics]
+port = 54327
+
+[edge_runtime]
+inspector_port = 54328
+
+[auth]
+site_url = "http://localhost:8080"
+additional_redirect_urls = ["http://127.0.0.1:8080", "http://localhost:8080"]
+minimum_password_length = 8
 
 [functions.process-email-queue]
 verify_jwt = true
@@ -6,20 +37,8 @@ verify_jwt = true
 [functions.send-transactional-email]
 verify_jwt = true
 
-[functions.preview-transactional-email]
-verify_jwt = false
-
 [functions.handle-email-unsubscribe]
-verify_jwt = false
-
-[functions.handle-email-suppression]
 verify_jwt = false
 
 [functions.decide-subject-change]
 verify_jwt = true
-
-# Desenvolvimento local (supabase start)
-[auth]
-site_url = "http://localhost:8080"
-additional_redirect_urls = ["http://127.0.0.1:8080", "http://localhost:8080"]
-minimum_password_length = 8

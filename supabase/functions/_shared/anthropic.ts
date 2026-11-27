@@ -1,11 +1,11 @@
-// Cliente mínimo da API da Anthropic (Claude) para as Edge Functions.
-// Substitui o Lovable AI Gateway. Aceita mensagens no formato OpenAI
-// (o formato que o resto do código já usa) e converte-as.
+// Cliente mínimo da API da Anthropic (Claude), usado só quando AI_PROVIDER=anthropic
+// (comparação com o Ollama). Não importar diretamente: usar ./ai.ts.
+// Aceita mensagens no formato OpenAI e converte-as.
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 
-export const DEFAULT_MODEL = "claude-fable-5-2";
+export const DEFAULT_MODEL = "claude-opus-5-5";
 
 type OpenAIContentPart =
   | { type: "text"; text: string }

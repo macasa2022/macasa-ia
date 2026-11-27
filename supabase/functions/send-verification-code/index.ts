@@ -3,7 +3,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
-import { emailProvider, sendEmail } from '../_shared/send-email.ts'
+import { sendEmail } from '../_shared/send-email.ts'
 
 // Rate-limit configuration (ad-hoc, DB-based — not a substitute for proper infra)
 const MAX_SENDS_PER_HOUR = 3
@@ -171,20 +171,12 @@ Deno.serve(async (req) => {
           unsubscribe_token: unsubscribeToken,
         }
 
-      // Envio imediato (Resend ou consola). Com o Lovable, mantém-se a fila.
+      // Envio imediato (SMTP, Resend ou consola).
       let emailError: unknown = null
-      if (emailProvider() === 'lovable') {
-        const { error } = await supabase.rpc('enqueue_email', {
-          queue_name: 'transactional_emails',
-          payload: emailPayload,
-        })
-        emailError = error
-      } else {
-        try {
-          await sendEmail(emailPayload)
-        } catch (err) {
-          emailError = err
-        }
+      try {
+        await sendEmail(emailPayload)
+      } catch (err) {
+        emailError = err
       }
 
       if (emailError) {

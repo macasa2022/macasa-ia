@@ -1,8 +1,8 @@
-// Envio de emails independente do Lovable.
-// EMAIL_PROVIDER: "smtp" | "resend" | "lovable" | "console"
+// Envio de emails.
+// EMAIL_PROVIDER: "smtp" | "resend" | "console"
 //   - "smtp": qualquer servidor SMTP, p.ex. Gmail com palavra-passe de aplicação
 //       SMTP_HOST=smtp.gmail.com  SMTP_PORT=465  SMTP_USER=...@gmail.com  SMTP_PASS=(palavra-passe de aplicação)
-//   - por omissão: resend se existir RESEND_API_KEY, lovable se existir LOVABLE_API_KEY, senão console.
+//   - por omissão: smtp se houver SMTP_HOST+SMTP_PASS, resend se existir RESEND_API_KEY, senão console.
 //   - "console" só escreve o email nos logs (útil para desenvolvimento local).
 // EMAIL_FROM (opcional): substitui o remetente, ex. "MACASA IA <noreply@o-teu-dominio.pt>".
 
@@ -22,12 +22,11 @@ export class EmailSendError extends Error {
   }
 }
 
-export function emailProvider(): "smtp" | "resend" | "lovable" | "console" {
+export function emailProvider(): "smtp" | "resend" | "console" {
   const p = (Deno.env.get("EMAIL_PROVIDER") || "").toLowerCase();
-  if (p === "smtp" || p === "resend" || p === "lovable" || p === "console") return p;
+  if (p === "smtp" || p === "resend" || p === "console") return p;
   if (Deno.env.get("SMTP_HOST") && Deno.env.get("SMTP_PASS")) return "smtp";
   if (Deno.env.get("RESEND_API_KEY")) return "resend";
-  if (Deno.env.get("LOVABLE_API_KEY")) return "lovable";
   return "console";
 }
 
@@ -62,15 +61,6 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
     } catch (err) {
       throw new EmailSendError(502, `SMTP: ${err instanceof Error ? err.message : String(err)}`);
     }
-    return;
-  }
-
-  if (provider === "lovable") {
-    const { sendLovableEmail } = await import("npm:@lovable.dev/email-js");
-    await sendLovableEmail(payload as never, {
-      apiKey: Deno.env.get("LOVABLE_API_KEY")!,
-      sendUrl: Deno.env.get("LOVABLE_SEND_URL"),
-    });
     return;
   }
 

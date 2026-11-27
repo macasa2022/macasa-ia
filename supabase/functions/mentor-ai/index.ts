@@ -8,6 +8,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-device-id, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Regra comum para as fórmulas (o frontend mostra-as com KaTeX).
+const MATH_RULE = "\n\nFÓRMULAS: escreve fórmulas, variáveis com índices e unidades em LaTeX entre $...$ " +
+  "(ex.: $v_0 = 0\\,\\text{m/s}$, $a = \\frac{v - v_0}{t}$). Não uses $ para mais nada. " +
+  "Dentro do JSON, escapa as barras invertidas (\\\\frac).";
+
 const SYSTEM_PROMPTS: Record<string, string> = {
   solve_analyze: `És o MENTOR DAS EXATAS — um tutor pedagógico de elite para alunos do 7º ao 12º ano em Matemática, Física e Química.
 
@@ -201,7 +206,7 @@ PERGUNTAS FORA DO ÂMBITO:
 
 FORMATO:
 - Usa markdown para estruturar as respostas
-- Destaca fórmulas com **negrito** ou blocos de código
+- Escreve todas as fórmulas, variáveis com índices e unidades em LaTeX entre $...$ (ex.: $v_0$, $a = \\frac{v - v_0}{t}$); fórmulas em destaque entre $$...$$. Nunca uses blocos de código para fórmulas
 - Usa listas numeradas para passos
 - Inclui secções claras com títulos ##
 
@@ -438,7 +443,7 @@ serve(async (req) => {
     }
 
     if (mode && mode.startsWith("solve_")) {
-      systemPrompt = SYSTEM_PROMPTS[mode] || SYSTEM_PROMPTS.solve_resolve;
+      systemPrompt = (SYSTEM_PROMPTS[mode] || SYSTEM_PROMPTS.solve_resolve) + MATH_RULE;
 
       const context = `\n\nContexto: Ano escolar: ${year || "não especificado"}. Disciplina: ${subject || "não especificada"}.`;
       systemPrompt += context;

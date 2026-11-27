@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { GraduationCap, BookOpen, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 
+import { MathText } from "@/components/MathText";
 type Step = {
   numero: number;
   titulo: string;
@@ -60,7 +61,7 @@ export default function ProfessorModeBlock({ data }: { data: ProfessorData }) {
         {contextoTeorico && (
           <div className="p-4">
             <div className="text-xs font-medium text-muted-foreground mb-1">CONTEXTO TEÓRICO</div>
-            <p className="text-sm leading-relaxed">{contextoTeorico}</p>
+            <p className="text-sm leading-relaxed"><MathText text={contextoTeorico} /></p>
           </div>
         )}
 
@@ -71,7 +72,7 @@ export default function ProfessorModeBlock({ data }: { data: ProfessorData }) {
               {definicoes.map((d, i) => (
                 <div key={i} className="p-2 rounded-lg bg-indigo-500/5 border border-indigo-500/20 text-sm">
                   <BookOpen className="w-3.5 h-3.5 inline mr-1.5 text-indigo-500" />
-                  {d}
+                  <MathText text={d} />
                 </div>
               ))}
             </div>
@@ -100,25 +101,25 @@ export default function ProfessorModeBlock({ data }: { data: ProfessorData }) {
               <div className="w-7 h-7 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xs font-bold shrink-0">
                 {numero}
               </div>
-              <span className="font-medium text-sm flex-1">{titulo}</span>
+              <span className="font-medium text-sm flex-1"><MathText text={titulo} /></span>
               {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
             </button>
             {open && (
               <div className="px-4 pb-4 space-y-2 border-t border-border/30 pt-3">
-                {oQueFazemos && <p className="text-sm">{oQueFazemos}</p>}
+                {oQueFazemos && <p className="text-sm"><MathText text={oQueFazemos} /></p>}
                 {fundamentacao && (
                   <div className="p-2.5 rounded-lg bg-indigo-500/5 border border-indigo-500/20">
                     <div className="text-xs font-medium text-indigo-600 dark:text-indigo-400 mb-1">FUNDAMENTAÇÃO</div>
-                    <p className="text-sm">{fundamentacao}</p>
+                    <p className="text-sm"><MathText text={fundamentacao} /></p>
                   </div>
                 )}
                 {calculo && (
                   <div className="p-3 rounded-lg bg-secondary/50 border border-border/50">
-                    <pre className="text-sm font-mono whitespace-pre-wrap">{calculo}</pre>
+                    <div className="text-sm whitespace-pre-wrap leading-relaxed"><MathText text={calculo} /></div>
                   </div>
                 )}
                 {notaTeorica && (
-                  <p className="text-xs text-muted-foreground p-2 bg-secondary/30 rounded-lg">📝 {notaTeorica}</p>
+                  <p className="text-xs text-muted-foreground p-2 bg-secondary/30 rounded-lg">📝 <MathText text={notaTeorica} /></p>
                 )}
               </div>
             )}
@@ -133,13 +134,13 @@ export default function ProfessorModeBlock({ data }: { data: ProfessorData }) {
             <CheckCircle2 className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             <div>
               <div className="text-xs font-medium text-muted-foreground">RESULTADO</div>
-              <div className="text-lg font-bold">{respostaFinal} {unidade && <span className="text-sm font-normal">({unidade})</span>}</div>
+              <div className="text-lg font-bold"><MathText text={respostaFinal} /> {unidade && <span className="text-sm font-normal">(<MathText text={unidade} />)</span>}</div>
             </div>
           </div>
-          {verificacao && <p className="text-sm mt-2 text-muted-foreground">{verificacao}</p>}
+          {verificacao && <p className="text-sm mt-2 text-muted-foreground"><MathText text={verificacao} /></p>}
           {paraAprofundar && (
             <div className="mt-3 p-2 rounded-lg bg-primary/5 border border-primary/20 text-sm">
-              📚 <strong>Para aprofundar:</strong> {paraAprofundar}
+              📚 <strong>Para aprofundar:</strong> <MathText text={paraAprofundar} />
             </div>
           )}
         </div>

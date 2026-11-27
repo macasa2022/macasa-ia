@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { BookOpen, Atom, FlaskConical, Brain, Target, AlertTriangle, Lightbulb, List } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
+import { MathText } from "@/components/MathText";
 type Analysis = {
   disciplina?: string;
   tema?: string;
@@ -64,7 +65,7 @@ export default function AnalysisSummaryCard({ data }: { data: Analysis }) {
             </div>
             <ul className="space-y-1">
               {data.dados.map((d, i) => (
-                <li key={i} className="text-sm pl-3 border-l-2 border-primary/30">{d}</li>
+                <li key={i} className="text-sm pl-3 border-l-2 border-primary/30"><MathText text={d} /></li>
               ))}
             </ul>
           </div>
@@ -77,7 +78,7 @@ export default function AnalysisSummaryCard({ data }: { data: Analysis }) {
             </div>
             <ul className="space-y-1">
               {data.incognitas.map((d, i) => (
-                <li key={i} className="text-sm pl-3 border-l-2 border-accent/50 font-medium">{String(d)}</li>
+                <li key={i} className="text-sm pl-3 border-l-2 border-accent/50 font-medium"><MathText text={String(d)} /></li>
               ))}
             </ul>
           </div>
@@ -90,7 +91,7 @@ export default function AnalysisSummaryCard({ data }: { data: Analysis }) {
             </div>
             <div className="flex flex-wrap gap-1.5">
               {data.formulas.map((f, i) => (
-                <code key={i} className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-md font-mono">{String(f)}</code>
+                <span key={i} className="text-sm bg-primary/10 text-primary px-2 py-1 rounded-md"><MathText text={f} /></span>
               ))}
             </div>
           </div>
@@ -103,7 +104,7 @@ export default function AnalysisSummaryCard({ data }: { data: Analysis }) {
             </div>
             <ul className="space-y-1">
               {data.armadilhas.map((a, i) => (
-                <li key={i} className="text-sm pl-3 border-l-2 border-destructive/30 text-muted-foreground">{String(a)}</li>
+                <li key={i} className="text-sm pl-3 border-l-2 border-destructive/30 text-muted-foreground"><MathText text={String(a)} /></li>
               ))}
             </ul>
           </div>

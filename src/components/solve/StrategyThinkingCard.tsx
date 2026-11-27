@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Brain, Eye, AlertTriangle, Lightbulb, Sparkles } from "lucide-react";
 
+import { MathText } from "@/components/MathText";
 type Strategy = {
   ideia_principal?: unknown;
   observar_primeiro?: unknown;
@@ -62,7 +63,7 @@ export default function StrategyThinkingCard({ data }: { data: Strategy }) {
                     return parts.map((part, idx) => (
                       <p key={idx} className="flex gap-1.5">
                         <span className="font-semibold shrink-0">Passo {idx + 1}:</span>
-                        <span>{part.replace(/\*\*/g, '').trim()}</span>
+                        <span><MathText text={part.replace(/\*\*/g, '').trim()} /></span>
                       </p>
                     ));
                   }
@@ -72,11 +73,11 @@ export default function StrategyThinkingCard({ data }: { data: Strategy }) {
                     return numbered.map((point, idx) => (
                       <p key={idx} className="flex gap-1.5">
                         <span className="font-semibold shrink-0">{idx + 1}.</span>
-                        <span>{point.replace(/\*\*/g, '').trim()}</span>
+                        <span><MathText text={point.replace(/\*\*/g, '').trim()} /></span>
                       </p>
                     ));
                   }
-                  return <p>{item.text}</p>;
+                  return <p><MathText text={item.text} /></p>;
                 })()}
               </div>
             </div>

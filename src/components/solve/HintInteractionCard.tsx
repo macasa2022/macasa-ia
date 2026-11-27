@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { MessageCircle, Lightbulb, HelpCircle } from "lucide-react";
 
+import { MathText } from "@/components/MathText";
 type HintData = {
   pergunta_orientadora?: string;
   observacao?: string;
@@ -36,14 +37,14 @@ export default function HintInteractionCard({ data }: { data: HintData }) {
         {data.observacao && (
           <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/20">
             <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">👀 OBSERVAÇÃO</div>
-            <p className="text-sm">{data.observacao}</p>
+            <p className="text-sm"><MathText text={data.observacao} /></p>
           </div>
         )}
 
         {data.proxima_acao && (
           <div className="p-3 rounded-lg bg-green-500/5 border border-green-500/20">
             <div className="text-xs font-medium text-green-600 dark:text-green-400 mb-1">➡️ PRÓXIMO PASSO</div>
-            <p className="text-sm">{data.proxima_acao}</p>
+            <p className="text-sm"><MathText text={data.proxima_acao} /></p>
           </div>
         )}
 
@@ -52,7 +53,7 @@ export default function HintInteractionCard({ data }: { data: HintData }) {
             <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1">
               <MessageCircle className="w-3.5 h-3.5" /> CONCEITO-CHAVE
             </div>
-            <p className="text-sm font-medium">{data.conceito_chave}</p>
+            <p className="text-sm font-medium"><MathText text={data.conceito_chave} /></p>
           </div>
         )}
       </div>

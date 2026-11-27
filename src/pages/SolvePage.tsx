@@ -22,6 +22,7 @@ import { saveAttempt } from "@/lib/attempts";
 import { fileToCompressedDataUrl } from "@/lib/image";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { MathText } from "@/components/MathText";
 const subjects = [
   { id: "Matemática", icon: BookOpen, color: "text-blue-600 dark:text-blue-400" },
   { id: "Física", icon: Atom, color: "text-emerald-600 dark:text-emerald-400" },
@@ -417,7 +418,7 @@ export default function SolvePage() {
                     if (displayText) {
                       return (
                         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl border border-border/50 shadow-card p-4">
-                          <p className="text-sm whitespace-pre-wrap">{displayText}</p>
+                          <p className="text-sm whitespace-pre-wrap"><MathText text={displayText} /></p>
                         </motion.div>
                       );
                     }

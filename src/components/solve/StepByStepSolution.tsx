@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { CheckCircle2, ChevronDown, ChevronUp, Lightbulb } from "lucide-react";
 import { useState } from "react";
 
+import { MathText } from "@/components/MathText";
 type Step = {
   numero: number;
   titulo: string;
@@ -72,7 +73,7 @@ export default function StepByStepSolution({ steps }: { steps: Step[] }) {
               <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">
                 {numero}
               </div>
-              <span className="font-medium text-sm flex-1">{titulo}</span>
+              <span className="font-medium text-sm flex-1"><MathText text={titulo} /></span>
               {isOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
             </button>
 
@@ -82,7 +83,7 @@ export default function StepByStepSolution({ steps }: { steps: Step[] }) {
                 {oQueFazemos && (
                   <div>
                     <div className="text-xs font-medium text-muted-foreground mb-1">O QUE FAZEMOS</div>
-                    <p className="text-sm leading-relaxed">{oQueFazemos}</p>
+                    <p className="text-sm leading-relaxed"><MathText text={oQueFazemos} /></p>
                   </div>
                 )}
 
@@ -93,7 +94,7 @@ export default function StepByStepSolution({ steps }: { steps: Step[] }) {
                       {fundamentacao ? "FUNDAMENTAÇÃO" : "PORQUÊ?"}
                     </div>
                     <p className="text-sm leading-relaxed text-blue-800 dark:text-blue-300">
-                      {fundamentacao || porque}
+                      <MathText text={fundamentacao || porque} />
                     </p>
                   </div>
                 )}
@@ -101,7 +102,7 @@ export default function StepByStepSolution({ steps }: { steps: Step[] }) {
                 {/* Calculation */}
                 {calculo && (
                   <div className="p-3 rounded-lg bg-secondary/50 border border-border/50">
-                    <pre className="text-sm font-mono whitespace-pre-wrap leading-relaxed">{calculo}</pre>
+                    <div className="text-sm whitespace-pre-wrap leading-relaxed"><MathText text={calculo} /></div>
                   </div>
                 )}
 
@@ -110,7 +111,7 @@ export default function StepByStepSolution({ steps }: { steps: Step[] }) {
                   <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/20">
                     <Lightbulb className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
                     <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-300">
-                      {dica || notaTeorica}
+                      <MathText text={dica || notaTeorica} />
                     </p>
                   </div>
                 )}

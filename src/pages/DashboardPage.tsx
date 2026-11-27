@@ -2,45 +2,37 @@ import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
-import { Calculator, MessageCircle, TrendingUp, BookOpen, Flame, Target, Clock, Sparkles, ArrowRight, Award, BarChart3 } from "lucide-react";
+import { Calculator, MessageCircle, Flame, Target, Clock, Sparkles, ArrowRight, Award, BarChart3, CalendarDays } from "lucide-react";
 import { motion } from "framer-motion";
 import SubjectChangeCard from "@/components/SubjectChangeCard";
-import { getPrimarySubject } from "@/lib/subjects";
+import { getPrimarySubject, CANONICAL_SUBJECTS, type CanonicalSubject } from "@/lib/subjects";
+import { useAttempts, computeStats, subjectCount, relativeTime, attemptTitle } from "@/lib/attempts";
 
-const recentExercises = [
-  { subject: "Matemática", topic: "Equações do 2º grau", time: "Há 2h", difficulty: "Médio" },
-  { subject: "Física", topic: "Movimento retilíneo uniforme", time: "Há 5h", difficulty: "Fácil" },
-  { subject: "Química", topic: "Balanceamento de reações", time: "Ontem", difficulty: "Difícil" },
-];
+const subjectColors: Record<string, string> = {
+  Matemática: "bg-math",
+  Física: "bg-physics",
+  Química: "bg-chemistry",
+};
 
-const recommendations = [
-  { subject: "Matemática", topic: "Funções quadráticas", reason: "Continuar do último tópico" },
-  { subject: "Física", topic: "Leis de Newton", reason: "Tema frequente em exames" },
-  { subject: "Química", topic: "Estequiometria", reason: "Área com mais dificuldade" },
-];
-
-const allSubjectsProgress = [
-  { name: "Matemática", progress: 65, exercises: 82, color: "bg-math" },
-  { name: "Física", progress: 42, exercises: 38, color: "bg-physics" },
-  { name: "Química", progress: 28, exercises: 27, color: "bg-chemistry" },
-];
+const difficultyClass = (d: string | null) =>
+  d === "Fácil" ? "bg-success-light text-success" : d === "Difícil" ? "bg-destructive/10 text-destructive" : "bg-warning-light text-warning";
 
 export default function DashboardPage() {
   const { profile, isAdmin, isPremium } = useAuth();
   const displayName = profile?.nome?.trim() || "";
+  const { data: attempts = [], isLoading } = useAttempts();
+  const stats = computeStats(attempts);
 
   const isFreeUser = !isAdmin && !isPremium;
   const enrolledSubject = getPrimarySubject(profile?.disciplinas_favoritas);
+  const visibleSubjects: CanonicalSubject[] = isFreeUser
+    ? (enrolledSubject ? [enrolledSubject] : [])
+    : [...CANONICAL_SUBJECTS];
 
-  const visibleRecent = isFreeUser
-    ? recentExercises.filter(e => e.subject === enrolledSubject)
-    : recentExercises;
-  const visibleRecommendations = isFreeUser
-    ? recommendations.filter(r => r.subject === enrolledSubject)
-    : recommendations;
-  const visibleProgress = isFreeUser
-    ? allSubjectsProgress.filter(s => s.name === enrolledSubject)
-    : allSubjectsProgress;
+  const recent = attempts.slice(0, 4);
+  const lastWithTopic = attempts.find((a) => a.topic);
+  const isEmpty = !isLoading && attempts.length === 0;
+  const maxBySubject = Math.max(1, ...visibleSubjects.map((s) => subjectCount(stats, s)));
 
   return (
     <AppLayout>
@@ -78,10 +70,10 @@ export default function DashboardPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { icon: Target, label: "Exercícios resolvidos", value: "147", color: "text-primary" },
-            { icon: Flame, label: "Streak de estudo", value: "12 dias", color: "text-accent" },
-            { icon: Clock, label: "Tempo esta semana", value: "4h 30m", color: "text-math" },
-            { icon: Award, label: "Taxa de acerto", value: "78%", color: "text-success" },
+            { icon: Target, label: "Exercícios resolvidos", value: isLoading ? "—" : String(stats.total), color: "text-primary" },
+            { icon: Flame, label: "Dias seguidos a estudar", value: isLoading ? "—" : `${stats.streak} ${stats.streak === 1 ? "dia" : "dias"}`, color: "text-accent" },
+            { icon: CalendarDays, label: "Exercícios esta semana", value: isLoading ? "—" : String(stats.thisWeek), color: "text-math" },
+            { icon: Award, label: "Temas diferentes", value: isLoading ? "—" : String(stats.topics), color: "text-success" },
           ].map((s, i) => (
             <motion.div key={i} className="bg-card rounded-xl p-5 shadow-card border border-border/50" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
               <s.icon className={`w-5 h-5 ${s.color} mb-2`} />
@@ -96,6 +88,30 @@ export default function DashboardPage() {
           <SubjectChangeCard />
         </div>
 
+        {isEmpty ? (
+          <motion.div
+            className="bg-card rounded-xl p-8 shadow-card border border-border/50 text-center"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <Sparkles className="w-7 h-7 text-primary" />
+            </div>
+            <h2 className="text-lg font-semibold mb-2">Ainda não resolveste nenhum exercício</h2>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
+              Envia o primeiro exercício — escrito ou por foto — e o teu progresso, histórico e recomendações
+              começam a aparecer aqui.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button variant="hero" asChild>
+                <Link to="/solve"><Calculator className="w-4 h-4" /> Resolver o primeiro exercício</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/chat"><MessageCircle className="w-4 h-4" /> Fazer uma pergunta ao Tutor</Link>
+              </Button>
+            </div>
+          </motion.div>
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent */}
           <div className="bg-card rounded-xl p-6 shadow-card border border-border/50">
@@ -104,15 +120,17 @@ export default function DashboardPage() {
               <Link to="/history" className="text-sm text-primary hover:underline flex items-center gap-1">Ver tudo <ArrowRight className="w-3 h-3" /></Link>
             </div>
             <div className="space-y-3">
-              {visibleRecent.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">Sem dúvidas recentes.</p>
-              ) : visibleRecent.map((e, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
-                  <div>
-                    <div className="font-medium text-sm">{e.topic}</div>
-                    <div className="text-xs text-muted-foreground">{e.subject} · {e.time}</div>
+              {isLoading ? (
+                <p className="text-sm text-muted-foreground text-center py-6">A carregar…</p>
+              ) : recent.map((e) => (
+                <div key={e.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
+                  <div className="min-w-0">
+                    <div className="font-medium text-sm truncate">{attemptTitle(e)}</div>
+                    <div className="text-xs text-muted-foreground">{e.subject || "—"} · {relativeTime(e.created_at)}</div>
                   </div>
-                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${e.difficulty === "Fácil" ? "bg-success-light text-success" : e.difficulty === "Médio" ? "bg-warning-light text-warning" : "bg-destructive/10 text-destructive"}`}>{e.difficulty}</span>
+                  {e.difficulty && (
+                    <span className={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-full ${difficultyClass(e.difficulty)}`}>{e.difficulty}</span>
+                  )}
                 </div>
               ))}
             </div>
@@ -122,41 +140,50 @@ export default function DashboardPage() {
           <div className="bg-card rounded-xl p-6 shadow-card border border-border/50">
             <h2 className="font-semibold text-lg flex items-center gap-2 mb-4"><Sparkles className="w-5 h-5 text-accent" /> Recomendações para ti</h2>
             <div className="space-y-3">
-              {visibleRecommendations.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">Sem recomendações disponíveis.</p>
-              ) : visibleRecommendations.map((r, i) => (
-                <Link to="/solve" key={i} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group">
+              {lastWithTopic ? (
+                <Link to="/solve" className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group">
                   <div>
-                    <div className="font-medium text-sm">{r.topic}</div>
-                    <div className="text-xs text-muted-foreground">{r.subject} · {r.reason}</div>
+                    <div className="font-medium text-sm">{lastWithTopic.topic}</div>
+                    <div className="text-xs text-muted-foreground">{lastWithTopic.subject || "—"} · Continuar do último tema</div>
                   </div>
                   <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 </Link>
-              ))}
+              ) : null}
+              <Link to="/chat" className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group">
+                <div>
+                  <div className="font-medium text-sm">Rever com o Tutor</div>
+                  <div className="text-xs text-muted-foreground">Pede outra explicação de um passo difícil</div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              </Link>
             </div>
           </div>
 
-          {/* Progress by subject */}
+          {/* Exercises by subject */}
           <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 lg:col-span-2">
-            <h2 className="font-semibold text-lg flex items-center gap-2 mb-4"><BarChart3 className="w-5 h-5 text-muted-foreground" /> Progresso por disciplina</h2>
+            <h2 className="font-semibold text-lg flex items-center gap-2 mb-4"><BarChart3 className="w-5 h-5 text-muted-foreground" /> Exercícios por disciplina</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {visibleProgress.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6 md:col-span-3">Sem dados de progresso ainda.</p>
-              ) : visibleProgress.map((s, i) => (
-                <div key={i} className="p-4 rounded-lg bg-secondary/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-sm">{s.name}</span>
-                    <span className="text-sm text-muted-foreground">{s.progress}%</span>
+              {visibleSubjects.map((name) => {
+                const count = subjectCount(stats, name);
+                return (
+                  <div key={name} className="p-4 rounded-lg bg-secondary/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-sm">{name}</span>
+                      <span className="text-sm text-muted-foreground">{count}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-border overflow-hidden mb-2">
+                      <div className={`h-full rounded-full ${subjectColors[name]} transition-all`} style={{ width: `${(count / maxBySubject) * 100}%` }} />
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {count === 0 ? "Ainda sem exercícios" : `${count} ${count === 1 ? "exercício resolvido" : "exercícios resolvidos"}`}
+                    </span>
                   </div>
-                  <div className="h-2 rounded-full bg-border overflow-hidden mb-2">
-                    <div className={`h-full rounded-full ${s.color} transition-all`} style={{ width: `${s.progress}%` }} />
-                  </div>
-                  <span className="text-xs text-muted-foreground">{s.exercises} exercícios resolvidos</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
+        )}
       </div>
     </AppLayout>
   );

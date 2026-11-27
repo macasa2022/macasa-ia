@@ -9,11 +9,28 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Seo } from "@/components/Seo";
+import { PASSWORD_RULES, isPasswordValid } from "@/lib/password";
 
 const years = ["7º ano", "8º ano", "9º ano", "10º ano", "11º ano", "12º ano"];
 const subjects = ["Matemática", "Física", "Química"];
 const goals = ["Melhorar notas", "Preparar exames", "Perceber a matéria", "Praticar exercícios", "Ser mais autónomo"];
 const frequencies = ["Todos os dias", "3-4 vezes por semana", "1-2 vezes por semana", "Quando precisar"];
+
+// Mensagem útil a partir do erro de uma Edge Function (corpo JSON com "error").
+async function functionErrorMessage(error: unknown, data: any): Promise<string> {
+  if (data?.error) return data.error === "Failed to send email"
+    ? "Não foi possível enviar o email com o código. Tenta novamente daqui a pouco."
+    : data.error;
+  const ctx = (error as { context?: Response } | null)?.context;
+  if (ctx && typeof ctx.json === "function") {
+    try {
+      const body = await ctx.json();
+      if (body?.error === "Failed to send email") return "Não foi possível enviar o email com o código. Tenta novamente daqui a pouco.";
+      if (body?.error) return body.error;
+    } catch { /* corpo não-JSON */ }
+  }
+  return "Erro ao processar o pedido. Tenta novamente.";
+}
 
 export default function SignupPage() {
   const [step, setStep] = useState(0);
@@ -50,27 +67,33 @@ export default function SignupPage() {
       return;
     }
 
-    if (password.length < 8) {
-      toast.error("A palavra-passe deve ter pelo menos 8 caracteres.");
+    if (!isPasswordValid(password)) {
+      toast.error("A palavra-passe deve ter pelo menos 8 caracteres, uma letra maiúscula e um caractere especial.");
       return;
     }
 
     setLoading(true);
 
-    // Anti-enumeration: backend always returns generic success.
-    // The OTP is only actually sent if the email is available.
     const { data, error } = await supabase.functions.invoke("send-verification-code", {
       body: { email: normalizedEmail, action: "send" },
     });
 
     setLoading(false);
 
-    if (error || !data?.success) {
-      toast.error("Erro ao processar o pedido. Tenta novamente.");
+    if (data?.code === "email_exists") {
+      toast.error(data.error || "Este email já está registado. Tenta iniciar sessão.", {
+        action: { label: "Iniciar sessão", onClick: () => navigate("/login") },
+      });
       return;
     }
 
-    toast.success("Se este email estiver disponível, receberás um código em breve.");
+    if (error || !data?.success) {
+      const message = await functionErrorMessage(error, data);
+      toast.error(message);
+      return;
+    }
+
+    toast.success(data.message || "Enviámos um código de 6 dígitos para o teu email.");
     setStep(-1); // -1 = OTP verification step
   };
 
@@ -99,7 +122,12 @@ export default function SignupPage() {
     });
     setVerifying(false);
     if (signUpError) {
-      toast.error(signUpError.message);
+      const msg = signUpError.message || "";
+      toast.error(
+        /already registered|already been registered|já está registado|database error saving new user/i.test(msg)
+          ? "Este email já está registado. Tenta iniciar sessão."
+          : msg
+      );
       return;
     }
     if (signUpData.user) {
@@ -125,7 +153,7 @@ export default function SignupPage() {
     });
     setLoading(false);
     if (error || !data?.success) {
-      toast.error("Erro ao reenviar o código.");
+      toast.error(data?.error || (await functionErrorMessage(error, data)));
       return;
     }
     toast.success("Novo código enviado!");
@@ -282,11 +310,23 @@ export default function SignupPage() {
             <div>
               <Label htmlFor="password">Palavra-passe</Label>
               <div className="relative mt-1.5">
-                <Input id="password" type={showPw ? "text" : "password"} placeholder="Mínimo 8 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <Input id="password" type={showPw ? "text" : "password"} placeholder="Mínimo 8 caracteres" aria-describedby="password-rules" value={password} onChange={(e) => setPassword(e.target.value)} />
                 <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowPw(!showPw)} aria-label={showPw ? "Ocultar palavra-passe" : "Mostrar palavra-passe"} aria-pressed={showPw}>
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              <ul id="password-rules" className="mt-2 space-y-1 text-xs" aria-live="polite">
+                {PASSWORD_RULES.map((rule) => {
+                  const ok = rule.test(password);
+                  return (
+                    <li key={rule.id} className={`flex items-center gap-1.5 ${ok ? "text-green-600" : "text-muted-foreground"}`}>
+                      <CheckCircle2 className={`w-3.5 h-3.5 ${ok ? "opacity-100" : "opacity-40"}`} aria-hidden="true" />
+                      <span>{rule.label}</span>
+                      <span className="sr-only">{ok ? "(cumprido)" : "(em falta)"}</span>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
             <Button variant="hero" className="w-full" onClick={handleSendOtp} disabled={loading}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}

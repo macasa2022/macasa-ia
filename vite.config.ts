@@ -1,12 +1,26 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
 
 /**
  * Converts render-blocking CSS <link> tags to non-blocking preloads
  * with a fallback noscript block for no-JS environments.
  */
+// Só em desenvolvimento (npm run dev): permite ao browser ligar-se ao Supabase local.
+// Em produção (npm run build) a CSP do index.html fica inalterada.
+function localSupabaseCspPlugin(): Plugin {
+  return {
+    name: "local-supabase-csp",
+    apply: "serve",
+    transformIndexHtml(html) {
+      return html.replace(
+        "connect-src 'self'",
+        "connect-src 'self' http://127.0.0.1:54321 ws://127.0.0.1:54321 http://localhost:54321 ws://localhost:54321",
+      );
+    },
+  };
+}
+
 function cssPreloadPlugin(): Plugin {
   return {
     name: 'css-preload',
@@ -30,7 +44,7 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
-  plugins: [react(), cssPreloadPlugin(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [react(), cssPreloadPlugin(), localSupabaseCspPlugin()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

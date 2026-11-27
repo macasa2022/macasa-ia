@@ -1,7 +1,10 @@
 import AppLayout from "@/components/AppLayout";
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Send, Brain, Loader2, Lightbulb, BookOpen, Eye, Sparkles, RotateCcw, MessageCircle, AlertTriangle, Clock } from "lucide-react";
+import { Send, Brain, Loader2, Lightbulb, BookOpen, Eye, Sparkles, RotateCcw, MessageCircle, AlertTriangle, Clock, Trash2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { relativeTime } from "@/lib/attempts";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { streamChat, ChatMessage } from "@/lib/ai-stream";
@@ -27,7 +30,65 @@ const starterSuggestions = [
 ];
 
 export default function ChatPage() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  const queryClient = useQueryClient();
+  const [conversationId, setConversationId] = useState<string | null>(null);
+
+  // Conversas anteriores (guardadas na base de dados)
+  const { data: conversations = [] } = useQuery({
+    queryKey: ["chat-conversations", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("chat_conversations")
+        .select("id, title, updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const openConversation = async (id: string) => {
+    if (!id) { resetChat(); return; }
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .select("role, content")
+      .eq("conversation_id", id)
+      .order("created_at", { ascending: true });
+    if (error) { toast.error("Não foi possível abrir a conversa."); return; }
+    setConversationId(id);
+    setMessages((data ?? []) as ChatMessage[]);
+  };
+
+  const deleteConversation = async () => {
+    if (!conversationId) return;
+    if (!window.confirm("Apagar esta conversa?")) return;
+    const { error } = await supabase.from("chat_conversations").delete().eq("id", conversationId);
+    if (error) { toast.error("Não foi possível apagar a conversa."); return; }
+    resetChat();
+    queryClient.invalidateQueries({ queryKey: ["chat-conversations"] });
+  };
+
+  // Garante que existe uma conversa e guarda uma mensagem nela
+  const saveMessage = async (convId: string | null, role: "user" | "assistant", content: string, title?: string) => {
+    if (!user || !content.trim()) return convId;
+    let id = convId;
+    if (!id) {
+      const { data, error } = await supabase
+        .from("chat_conversations")
+        .insert({ user_id: user.id, title: (title || content).replace(/\s+/g, " ").slice(0, 60) })
+        .select("id")
+        .single();
+      if (error || !data) { console.error("Erro ao criar conversa:", error); return null; }
+      id = data.id;
+      setConversationId(id);
+    }
+    const { error } = await supabase.from("chat_messages").insert({ conversation_id: id, user_id: user.id, role, content });
+    if (error) console.error("Erro ao guardar mensagem:", error);
+    await supabase.from("chat_conversations").update({ updated_at: new Date().toISOString() }).eq("id", id);
+    return id;
+  };
   const { isOnCooldown, isLimited, showWarning, remaining, recordQuestion, getCooldownTimeLeft } = useUsageLimit();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -61,6 +122,7 @@ export default function ChatPage() {
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
+    const convId = await saveMessage(conversationId, "user", content);
 
     let assistantContent = "";
 
@@ -79,7 +141,13 @@ export default function ChatPage() {
       messages: newMessages,
       year: profile?.ano_escolar || undefined,
       onDelta: updateAssistant,
-      onDone: () => setIsLoading(false),
+      onDone: async () => {
+        setIsLoading(false);
+        if (assistantContent.trim()) {
+          await saveMessage(convId, "assistant", assistantContent);
+          queryClient.invalidateQueries({ queryKey: ["chat-conversations"] });
+        }
+      },
       onError: (err) => {
         toast.error(err);
         setIsLoading(false);
@@ -97,6 +165,7 @@ export default function ChatPage() {
   const resetChat = () => {
     setMessages([]);
     setInput("");
+    setConversationId(null);
   };
 
   return (
@@ -114,11 +183,35 @@ export default function ChatPage() {
                 <p className="text-xs text-muted-foreground">O teu mentor de Exatas</p>
               </div>
             </div>
-            {messages.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={resetChat} className="text-xs gap-1.5">
-                <RotateCcw className="w-3.5 h-3.5" /> Nova conversa
-              </Button>
-            )}
+            <div className="flex items-center gap-1.5">
+              {conversations.length > 0 && (
+                <>
+                  <label htmlFor="conv-select" className="sr-only">Conversas anteriores</label>
+                  <select
+                    id="conv-select"
+                    value={conversationId ?? ""}
+                    onChange={(e) => openConversation(e.target.value)}
+                    disabled={isLoading}
+                    className="text-xs max-w-[11rem] rounded-md border border-border bg-background px-2 py-1.5"
+                  >
+                    <option value="">Conversas anteriores…</option>
+                    {conversations.map((c) => (
+                      <option key={c.id} value={c.id}>{c.title} · {relativeTime(c.updated_at)}</option>
+                    ))}
+                  </select>
+                </>
+              )}
+              {conversationId && !isLoading && (
+                <Button variant="ghost" size="sm" onClick={deleteConversation} className="text-xs" aria-label="Apagar esta conversa">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              )}
+              {messages.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={resetChat} className="text-xs gap-1.5" disabled={isLoading}>
+                  <RotateCcw className="w-3.5 h-3.5" /> Nova conversa
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 

@@ -1,8 +1,9 @@
+/* O @import tem de vir antes de qualquer outra regra, senão o browser ignora-o (a fonte Inter não carregava). */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap') layer(base);
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap') layer(base);
 
 @layer base {
   :root {

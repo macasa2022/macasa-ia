@@ -1,31 +1,16 @@
 import AppLayout from "@/components/AppLayout";
-import { Clock, BarChart3, TrendingUp, Target } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Flame, BarChart3, Target, Award, Calculator, History as HistoryIcon, Image as ImageIcon } from "lucide-react";
 import { motion } from "framer-motion";
-
-const historyItems = [
-  { topic: "Equações do 2º grau", subject: "Matemática", date: "Hoje, 14:30", mode: "Explicar", correct: true },
-  { topic: "Movimento retilíneo uniforme", subject: "Física", date: "Hoje, 10:15", mode: "Resolver", correct: true },
-  { topic: "Balanceamento de reações", subject: "Química", date: "Ontem, 18:00", mode: "Treino", correct: false },
-  { topic: "Sistemas de equações", subject: "Matemática", date: "Ontem, 15:30", mode: "Explicar", correct: true },
-  { topic: "Leis de Newton", subject: "Física", date: "3 dias atrás", mode: "Pista", correct: true },
-  { topic: "Tabela periódica", subject: "Química", date: "4 dias atrás", mode: "Professor", correct: true },
-  { topic: "Funções lineares", subject: "Matemática", date: "5 dias atrás", mode: "Resolver", correct: false },
-  { topic: "Energia cinética", subject: "Física", date: "1 semana atrás", mode: "Treino", correct: true },
-];
-
-const weeklyData = [
-  { day: "Seg", exercises: 5 },
-  { day: "Ter", exercises: 3 },
-  { day: "Qua", exercises: 7 },
-  { day: "Qui", exercises: 2 },
-  { day: "Sex", exercises: 6 },
-  { day: "Sáb", exercises: 4 },
-  { day: "Dom", exercises: 1 },
-];
-
-const maxExercises = Math.max(...weeklyData.map(d => d.exercises));
+import { Button } from "@/components/ui/button";
+import { useAttempts, computeStats, relativeTime, attemptTitle, MODE_LABELS } from "@/lib/attempts";
 
 export default function HistoryPage() {
+  const { data: attempts = [], isLoading, isError } = useAttempts();
+  const stats = computeStats(attempts);
+  const maxExercises = Math.max(1, ...stats.weekly.map((d) => d.exercises));
+  const isEmpty = !isLoading && !isError && attempts.length === 0;
+
   return (
     <AppLayout>
       <div className="p-6 md:p-8 max-w-5xl mx-auto">
@@ -37,53 +22,81 @@ export default function HistoryPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { icon: Target, label: "Total de exercícios", value: "147" },
-            { icon: TrendingUp, label: "Taxa de acerto", value: "78%" },
-            { icon: Clock, label: "Tempo total", value: "32h" },
-            { icon: BarChart3, label: "Esta semana", value: "28" },
+            { icon: Target, label: "Total de exercícios", value: stats.total },
+            { icon: BarChart3, label: "Esta semana", value: stats.thisWeek },
+            { icon: Flame, label: "Dias seguidos", value: stats.streak },
+            { icon: Award, label: "Temas diferentes", value: stats.topics },
           ].map((s, i) => (
             <div key={i} className="bg-card rounded-xl p-5 shadow-card border border-border/50">
               <s.icon className="w-5 h-5 text-primary mb-2" />
-              <div className="text-2xl font-bold">{s.value}</div>
+              <div className="text-2xl font-bold">{isLoading ? "—" : s.value}</div>
               <div className="text-xs text-muted-foreground">{s.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Weekly chart */}
-        <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 mb-6">
-          <h2 className="font-semibold text-lg mb-4">Evolução semanal</h2>
-          <div className="flex items-end gap-3 h-32">
-            {weeklyData.map((d, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <div className="text-xs font-medium text-muted-foreground">{d.exercises}</div>
-                <div className="w-full bg-primary/20 rounded-t-md relative" style={{ height: `${(d.exercises / maxExercises) * 100}%` }}>
-                  <div className="absolute inset-0 bg-gradient-hero rounded-t-md" />
-                </div>
-                <div className="text-xs text-muted-foreground">{d.day}</div>
-              </div>
-            ))}
+        {isEmpty ? (
+          <div className="bg-card rounded-xl p-8 shadow-card border border-border/50 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <HistoryIcon className="w-7 h-7 text-primary" />
+            </div>
+            <h2 className="text-lg font-semibold mb-2">O teu histórico está vazio</h2>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
+              Cada exercício que resolveres fica guardado aqui, com o tema, a disciplina e a data, para poderes
+              acompanhar a tua evolução.
+            </p>
+            <Button variant="hero" asChild>
+              <Link to="/solve"><Calculator className="w-4 h-4" /> Resolver um exercício</Link>
+            </Button>
           </div>
-        </div>
-
-        {/* History list */}
-        <div className="bg-card rounded-xl p-6 shadow-card border border-border/50">
-          <h2 className="font-semibold text-lg mb-4">Últimos exercícios</h2>
-          <div className="space-y-2">
-            {historyItems.map((h, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className={`w-2 h-2 rounded-full ${h.correct ? "bg-success" : "bg-destructive"}`} />
-                  <div>
-                    <div className="font-medium text-sm">{h.topic}</div>
-                    <div className="text-xs text-muted-foreground">{h.subject} · {h.date}</div>
+        ) : (
+          <>
+            {/* Weekly chart */}
+            <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 mb-6">
+              <h2 className="font-semibold text-lg mb-4">Últimos 7 dias</h2>
+              <div className="flex items-end gap-3 h-32" role="img" aria-label={`Exercícios por dia nos últimos 7 dias: ${stats.weekly.map((d) => `${d.day} ${d.exercises}`).join(", ")}`}>
+                {stats.weekly.map((d, i) => (
+                  <div key={i} className="flex-1 h-full flex flex-col items-center justify-end gap-1">
+                    <div className="text-xs font-medium text-muted-foreground">{d.exercises}</div>
+                    <div
+                      className="w-full rounded-t-md bg-gradient-hero"
+                      style={{ height: d.exercises ? `${(d.exercises / maxExercises) * 75}%` : "2px", opacity: d.exercises ? 1 : 0.3 }}
+                    />
+                    <div className="text-xs text-muted-foreground capitalize">{d.day}</div>
                   </div>
-                </div>
-                <span className="text-xs px-2.5 py-1 rounded-full bg-secondary text-muted-foreground">{h.mode}</span>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+
+            {/* History list */}
+            <div className="bg-card rounded-xl p-6 shadow-card border border-border/50">
+              <h2 className="font-semibold text-lg mb-4">Últimos exercícios</h2>
+              {isError && <p className="text-sm text-destructive">Não foi possível carregar o histórico.</p>}
+              {isLoading ? (
+                <p className="text-sm text-muted-foreground text-center py-6">A carregar…</p>
+              ) : (
+                <div className="space-y-2">
+                  {attempts.slice(0, 100).map((h) => (
+                    <div key={h.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm truncate flex items-center gap-1.5">
+                          {h.has_image && <ImageIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" aria-label="Exercício por foto" />}
+                          {attemptTitle(h)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {[h.subject, h.difficulty, relativeTime(h.created_at)].filter(Boolean).join(" · ")}
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-xs px-2.5 py-1 rounded-full bg-secondary text-muted-foreground">
+                        {MODE_LABELS[h.mode] || h.mode}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </AppLayout>
   );

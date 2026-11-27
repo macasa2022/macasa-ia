@@ -2,7 +2,8 @@ import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, BookOpen, Bell, Palette, Shield, Loader2 } from "lucide-react";
+import { User, BookOpen, Bell, Palette, Shield, Loader2, KeyRound } from "lucide-react";
+import SecuritySection from "@/components/SecuritySection";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,7 +13,9 @@ import { useTheme } from "next-themes";
 import { CANONICAL_SUBJECTS, getPrimarySubject, getValidSubjects, normalizeSubjectName } from "@/lib/subjects";
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState("perfil");
+  // #seguranca no endereço abre logo esse separador (link do email de aviso)
+  const [activeTab, setActiveTab] = useState(() =>
+    typeof window !== "undefined" && window.location.hash === "#seguranca" ? "seguranca" : "perfil");
   const { profile, user, refreshProfile, isPremium, subscriptionEnd } = useAuth();
   const { theme, setTheme } = useTheme();
   const [saving, setSaving] = useState(false);
@@ -45,15 +48,10 @@ export default function SettingsPage() {
       toast.error("Introduz um nome válido (mínimo 3 letras).");
       return;
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-    if (!emailRegex.test(email.trim())) {
-      toast.error("Introduz um email válido.");
-      return;
-    }
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ nome: trimmedNome, email: email.trim(), ano_escolar: anoEscolar, updated_at: new Date().toISOString() })
+      .update({ nome: trimmedNome, ano_escolar: anoEscolar, updated_at: new Date().toISOString() })
       .eq("user_id", user.id);
     setSaving(false);
     if (error) {
@@ -110,6 +108,7 @@ export default function SettingsPage() {
     { id: "estudo", label: "Preferências", icon: BookOpen },
     { id: "notificacoes", label: "Notificações", icon: Bell },
     { id: "aparencia", label: "Aparência", icon: Palette },
+    { id: "seguranca", label: "Sessões e segurança", icon: KeyRound },
     { id: "conta", label: "Conta", icon: Shield },
   ];
 
@@ -137,8 +136,11 @@ export default function SettingsPage() {
                 <Input value={nome} onChange={e => setNome(e.target.value)} className="mt-1.5" />
               </div>
               <div>
-                <Label>Email</Label>
-                <Input value={email} onChange={e => setEmail(e.target.value)} className="mt-1.5" />
+                <Label htmlFor="settings-email">Email</Label>
+                <Input id="settings-email" value={email} readOnly disabled aria-describedby="settings-email-help" className="mt-1.5" />
+                <p id="settings-email-help" className="text-xs text-muted-foreground mt-1">
+                  O email da conta não pode ser alterado. Para mudar, contacta o suporte.
+                </p>
               </div>
               <div>
                 <Label>Ano escolar</Label>
@@ -207,6 +209,7 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+          {activeTab === "seguranca" && <SecuritySection />}
           {activeTab === "conta" && (
             <div className="space-y-4">
               <div className="p-4 rounded-lg bg-secondary/50">

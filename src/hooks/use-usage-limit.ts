@@ -32,11 +32,7 @@ export function useUsageLimit() {
         setQuestionCount(data.question_count);
         setCooldownUntil(new Date(data.cooldown_until));
       } else if (data.cooldown_until && new Date(data.cooldown_until) <= new Date()) {
-        // Cooldown expired, reset
-        await supabase
-          .from("usage_tracking")
-          .update({ question_count: 0, cooldown_until: null })
-          .eq("user_id", user.id);
+        // Período de espera terminou (o servidor reinicia a contagem na próxima pergunta)
         setQuestionCount(0);
         setCooldownUntil(null);
       } else {
@@ -64,62 +60,29 @@ export function useUsageLimit() {
     return () => clearInterval(interval);
   }, [cooldownUntil, fetchUsage]);
 
+  // Verificação prévia (só leitura). A contagem a sério é feita no servidor
+  // (Edge Function mentor-ai), que é quem decide se a pergunta é permitida.
   const recordQuestion = useCallback(async () => {
     if (!user || !isLimited) return { allowed: true, warning: false };
 
-    // Ensure record exists
     const { data: existing } = await supabase
       .from("usage_tracking")
-      .select("*")
+      .select("question_count, cooldown_until")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    let currentCount = 0;
-
-    if (!existing) {
-      await supabase
-        .from("usage_tracking")
-        .insert({ user_id: user.id, question_count: 1 });
-      currentCount = 1;
-    } else {
-      // Check cooldown
-      if (existing.cooldown_until && new Date(existing.cooldown_until) > new Date()) {
-        setCooldownUntil(new Date(existing.cooldown_until));
-        return { allowed: false, warning: false };
-      }
-
-      // Reset if cooldown expired
-      let count = existing.question_count;
-      if (existing.cooldown_until && new Date(existing.cooldown_until) <= new Date()) {
-        count = 0;
-      }
-
-      if (count >= MAX_QUESTIONS) {
-        const cooldown = new Date(Date.now() + COOLDOWN_HOURS * 60 * 60 * 1000);
-        await supabase
-          .from("usage_tracking")
-          .update({ cooldown_until: cooldown.toISOString() })
-          .eq("user_id", user.id);
-        setCooldownUntil(cooldown);
-        return { allowed: false, warning: false };
-      }
-
-      const newCount = count + 1;
-      const update: any = { question_count: newCount, cooldown_until: null };
-      
-      if (newCount >= MAX_QUESTIONS) {
-        const cooldown = new Date(Date.now() + COOLDOWN_HOURS * 60 * 60 * 1000);
-        update.cooldown_until = cooldown.toISOString();
-        setCooldownUntil(cooldown);
-      }
-
-      await supabase
-        .from("usage_tracking")
-        .update(update)
-        .eq("user_id", user.id);
-      currentCount = newCount;
+    let count = existing?.question_count ?? 0;
+    const cooldown = existing?.cooldown_until ? new Date(existing.cooldown_until) : null;
+    if (cooldown && cooldown > new Date()) {
+      setCooldownUntil(cooldown);
+      return { allowed: false, warning: false };
     }
+    if (cooldown && cooldown <= new Date()) count = 0;
 
+    const currentCount = count + 1;
+    if (currentCount >= MAX_QUESTIONS) {
+      setCooldownUntil(new Date(Date.now() + COOLDOWN_HOURS * 60 * 60 * 1000));
+    }
     setQuestionCount(currentCount);
     const warning = currentCount === WARNING_THRESHOLD;
     return { allowed: true, warning, remaining: MAX_QUESTIONS - currentCount };

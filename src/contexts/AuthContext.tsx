@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { getDeviceId } from "@/lib/device";
+import SessionGuard from "@/components/SessionGuard";
 
 type Profile = {
   id: string;
@@ -23,8 +25,12 @@ type AuthContextType = {
   isPremium: boolean;
   isSchoolPremium: boolean;
   subscriptionEnd: string | null;
+  /** Estado do pagamento Stripe: active | grace (renovação por pagar) | pending_first (compra por pagar) | none */
+  paymentState: string | null;
+  paymentDueDate: string | null;
+  pendingInvoiceUrl: string | null;
   loading: boolean;
-  signOut: () => Promise<void>;
+  signOut: (opts?: { skipRelease?: boolean }) => Promise<void>;
   refreshProfile: () => Promise<void>;
   checkSubscription: () => Promise<void>;
 };
@@ -37,6 +43,9 @@ const AuthContext = createContext<AuthContextType>({
   isPremium: false,
   isSchoolPremium: false,
   subscriptionEnd: null,
+  paymentState: null,
+  paymentDueDate: null,
+  pendingInvoiceUrl: null,
   loading: true,
   signOut: async () => {},
   refreshProfile: async () => {},
@@ -53,9 +62,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isStripePremium, setIsStripePremium] = useState(false);
   const [isSchoolPremium, setIsSchoolPremium] = useState(false);
   const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
+  const [paymentState, setPaymentState] = useState<string | null>(null);
+  const [paymentDueDate, setPaymentDueDate] = useState<string | null>(null);
+  const [pendingInvoiceUrl, setPendingInvoiceUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const isPremium = isStripePremium || isSchoolPremium;
+  // Premium = subscrição (Stripe ou atribuída pelo admin, via check-subscription),
+  // plano Escola, ou administrador (acesso total a todos os planos).
+  const isPremium = isStripePremium || isSchoolPremium || isAdmin;
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
@@ -83,6 +97,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setIsStripePremium(!!data?.subscribed);
       setSubscriptionEnd(data?.subscription_end || null);
+      setPaymentState(data?.state || null);
+      setPaymentDueDate(data?.due_date || null);
+      setPendingInvoiceUrl(data?.invoice_url || null);
     } catch (err) {
       console.error("Error checking subscription:", err);
     }
@@ -154,8 +171,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const signOut = async (opts?: { skipRelease?: boolean }) => {
+    // Libertar a sessão ativa deste dispositivo (permite entrar logo noutro)
+    if (!opts?.skipRelease) {
+      try {
+        await supabase.functions.invoke("session-guard", { body: { action: "release", device_id: getDeviceId() } });
+      } catch { /* sem rede: a sessão expira sozinha por inatividade */ }
+    }
+    await supabase.auth.signOut({ scope: "local" });
     setSession(null);
     setUser(null);
     setProfile(null);
@@ -163,11 +186,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsStripePremium(false);
     setIsSchoolPremium(false);
     setSubscriptionEnd(null);
+    setPaymentState(null);
+    setPaymentDueDate(null);
+    setPendingInvoiceUrl(null);
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, isAdmin, isPremium, isSchoolPremium, subscriptionEnd, loading, signOut, refreshProfile, checkSubscription }}>
+    <AuthContext.Provider value={{ session, user, profile, isAdmin, isPremium, isSchoolPremium, subscriptionEnd, paymentState, paymentDueDate, pendingInvoiceUrl, loading, signOut, refreshProfile, checkSubscription }}>
       {children}
+      <SessionGuard />
     </AuthContext.Provider>
   );
 }

@@ -280,6 +280,261 @@ export type Database = {
           },
         ]
       }
+      account_suspensions: {
+        Row: {
+          reason: string | null
+          suspended_at: string
+          suspended_by: string | null
+          user_id: string
+        }
+        Insert: {
+          reason?: string | null
+          suspended_at?: string
+          suspended_by?: string | null
+          user_id: string
+        }
+        Update: {
+          reason?: string | null
+          suspended_at?: string
+          suspended_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      active_sessions: {
+        Row: {
+          device_id: string
+          device_label: string | null
+          last_seen: string
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          device_id: string
+          device_label?: string | null
+          last_seen?: string
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          device_id?: string
+          device_label?: string | null
+          last_seen?: string
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      chat_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      known_devices: {
+        Row: {
+          device_id: string
+          device_label: string | null
+          first_seen: string
+          last_seen: string
+          user_id: string
+        }
+        Insert: {
+          device_id: string
+          device_label?: string | null
+          first_seen?: string
+          last_seen?: string
+          user_id: string
+        }
+        Update: {
+          device_id?: string
+          device_label?: string | null
+          first_seen?: string
+          last_seen?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      session_events: {
+        Row: {
+          created_at: string
+          device_id: string | null
+          device_label: string | null
+          id: string
+          kind: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id?: string | null
+          device_label?: string | null
+          id?: string
+          kind: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string | null
+          device_label?: string | null
+          id?: string
+          kind?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stripe_premium_cache: {
+        Row: {
+          checked_at: string
+          premium: boolean
+          user_id: string
+        }
+        Insert: {
+          checked_at?: string
+          premium: boolean
+          user_id: string
+        }
+        Update: {
+          checked_at?: string
+          premium?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
+      study_plans: {
+        Row: {
+          created_at: string
+          done: string[]
+          id: string
+          plan: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          done?: string[]
+          id?: string
+          plan: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          done?: string[]
+          id?: string
+          plan?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
+      exercise_attempts: {
+        Row: {
+          created_at: string
+          difficulty: string | null
+          exercise_text: string | null
+          has_image: boolean
+          id: string
+          mode: string
+          result: Json | null
+          school_year: string | null
+          subject: string | null
+          subtopic: string | null
+          topic: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          difficulty?: string | null
+          exercise_text?: string | null
+          has_image?: boolean
+          id?: string
+          mode: string
+          result?: Json | null
+          school_year?: string | null
+          subject?: string | null
+          subtopic?: string | null
+          topic?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          difficulty?: string | null
+          exercise_text?: string | null
+          has_image?: boolean
+          id?: string
+          mode?: string
+          result?: Json | null
+          school_year?: string | null
+          subject?: string | null
+          subtopic?: string | null
+          topic?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      manual_premium_members: {
+        Row: {
+          granted_at: string
+          granted_by: string | null
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string
+          granted_by?: string | null
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          granted_at?: string
+          granted_by?: string | null
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       school_premium_members: {
         Row: {
           added_by: string | null
@@ -457,6 +712,7 @@ export type Database = {
         Returns: boolean
       }
       is_school_premium: { Args: { _user_id: string }; Returns: boolean }
+      is_premium_user: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
           dlq_name: string

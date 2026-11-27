@@ -3,6 +3,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { emailProvider, sendEmail } from '../_shared/send-email.ts'
 
 // Rate-limit configuration (ad-hoc, DB-based — not a substitute for proper infra)
 const MAX_SENDS_PER_HOUR = 3
@@ -67,12 +68,11 @@ Deno.serve(async (req) => {
         )
       }
 
-      // 2) ANTI-ENUMERATION — check existing profile silently
-      const { data: profileMatch } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('email', normalizedEmail)
-        .maybeSingle()
+      // 2) EMAIL ÚNICO — o email (ou uma variante: +etiqueta, pontos no Gmail) já tem conta?
+      const { data: alreadyRegistered, error: dupError } = await supabase.rpc('email_is_registered', {
+        _email: normalizedEmail,
+      })
+      if (dupError) console.error('email_is_registered error:', dupError)
 
       // Always record the send attempt (for rate-limit accounting)
       await supabase.from('otp_send_attempts').insert({
@@ -80,12 +80,13 @@ Deno.serve(async (req) => {
         ip_address: ipAddress,
       })
 
-      // If email already exists, return generic success WITHOUT sending code
-      if (profileMatch) {
+      // Email já registado: avisar claramente (não envia código)
+      if (alreadyRegistered) {
         return new Response(
           JSON.stringify({
-            success: true,
-            message: 'Se este email estiver disponível, receberás um código em breve.',
+            success: false,
+            code: 'email_exists',
+            error: 'Este email já está registado. Tenta iniciar sessão.',
           }),
           {
             status: 200,
@@ -150,9 +151,12 @@ Deno.serve(async (req) => {
         })
       }
 
-      const { error: emailError } = await supabase.rpc('enqueue_email', {
-        queue_name: 'transactional_emails',
-        payload: {
+      // Desenvolvimento local: mostra o código nos logs (nunca ativar em produção)
+      if (Deno.env.get('DEV_LOG_OTP') === 'true') {
+        console.log(`[DEV_LOG_OTP] Código para ${normalizedEmail}: ${verificationCode}`)
+      }
+
+      const emailPayload = {
           to: normalizedEmail,
           subject: 'O teu código de verificação - MACASA IA',
           html: emailHtml,
@@ -165,11 +169,26 @@ Deno.serve(async (req) => {
           label: 'verification-code',
           queued_at: new Date().toISOString(),
           unsubscribe_token: unsubscribeToken,
-        },
-      })
+        }
+
+      // Envio imediato (Resend ou consola). Com o Lovable, mantém-se a fila.
+      let emailError: unknown = null
+      if (emailProvider() === 'lovable') {
+        const { error } = await supabase.rpc('enqueue_email', {
+          queue_name: 'transactional_emails',
+          payload: emailPayload,
+        })
+        emailError = error
+      } else {
+        try {
+          await sendEmail(emailPayload)
+        } catch (err) {
+          emailError = err
+        }
+      }
 
       if (emailError) {
-        console.error('Email enqueue error:', emailError)
+        console.error('Email send error:', emailError)
         return new Response(JSON.stringify({ error: 'Failed to send email' }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -179,7 +198,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'Se este email estiver disponível, receberás um código em breve.',
+          message: 'Enviámos um código de 6 dígitos para o teu email.',
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

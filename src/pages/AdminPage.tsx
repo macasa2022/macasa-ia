@@ -24,9 +24,16 @@ type ProfileWithRole = {
   created_at: string;
   roles: string[];
   plan: string;
+  plan_source: "admin" | "school" | "manual" | "stripe" | null;
   subscription_id: string | null;
   subscription_end: string | null;
+  suspended: { reason: string | null; suspended_at: string } | null;
+  devices: number;
+  transfers30d: number;
 };
+
+// Indícios (não provas) de partilha: muitos dispositivos ou muitas transferências em 30 dias
+const SHARING_HINT = (p: { devices: number; transfers30d: number }) => p.devices >= 4 || p.transfers30d >= 8;
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -37,12 +44,16 @@ export default function AdminPage() {
   const { data: profiles = [], isLoading, refetch } = useQuery({
     queryKey: ["admin-users"],
     queryFn: async () => {
-      const [{ data: profs, error }, { data: roles }, subsResponse] = await Promise.all([
+      const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+      const [{ data: profs, error }, { data: roles }, subsResponse, { data: suspensions }, { data: devices }, { data: transfers }] = await Promise.all([
         supabase.from("profiles").select("*").order("created_at", { ascending: false }),
         supabase.from("user_roles").select("*"),
         supabase.functions.invoke("admin-subscriptions", {
           body: { action: "list" },
         }),
+        supabase.from("account_suspensions").select("user_id, reason, suspended_at"),
+        supabase.from("known_devices").select("user_id"),
+        supabase.from("session_events").select("user_id").eq("kind", "transfer").gte("created_at", since),
       ]);
 
       if (error) throw error;
@@ -55,8 +66,12 @@ export default function AdminPage() {
           .filter((r) => r.user_id === p.user_id)
           .map((r) => r.role),
         plan: subscriptions[p.user_id]?.plan || "Gratuito",
+        plan_source: subscriptions[p.user_id]?.source || null,
         subscription_id: subscriptions[p.user_id]?.subscription_id || null,
         subscription_end: subscriptions[p.user_id]?.subscription_end || null,
+        suspended: (suspensions || []).find((x) => x.user_id === p.user_id) || null,
+        devices: (devices || []).filter((d) => d.user_id === p.user_id).length,
+        transfers30d: (transfers || []).filter((t) => t.user_id === p.user_id).length,
       })) as ProfileWithRole[];
     },
   });
@@ -90,12 +105,15 @@ export default function AdminPage() {
     try {
       if (newPlan === "Premium") {
         const { data, error } = await supabase.functions.invoke("admin-subscriptions", {
-          body: { action: "upgrade", user_email: profile.email },
+          body: { action: "upgrade", user_id: profile.user_id },
         });
         if (error || data?.error) throw new Error(data?.error || "Erro ao atualizar plano");
       } else {
+        if (profile.plan_source === "stripe" && !window.confirm(`${profile.nome || profile.email} tem uma subscrição Stripe. Passar a Gratuito cancela essa subscrição. Continuar?`)) {
+          return;
+        }
         const { data, error } = await supabase.functions.invoke("admin-subscriptions", {
-          body: { action: "downgrade", subscription_id: profile.subscription_id, user_email: profile.email },
+          body: { action: "downgrade", user_id: profile.user_id, subscription_id: profile.subscription_id },
         });
         if (error || data?.error) throw new Error(data?.error || "Erro ao atualizar plano");
       }
@@ -106,6 +124,31 @@ export default function AdminPage() {
     } finally {
       setChangingPlan(null);
     }
+  };
+
+  // Suspensão: só depois de analisar a situação (nunca automática)
+  const toggleSuspension = async (profile: ProfileWithRole) => {
+    if (profile.user_id === user?.id) {
+      toast.error("Não podes suspender a tua própria conta.");
+      return;
+    }
+    if (profile.suspended) {
+      const { error } = await supabase.from("account_suspensions").delete().eq("user_id", profile.user_id);
+      if (error) { toast.error("Erro ao reativar a conta."); return; }
+      toast.success("Conta reativada.");
+    } else {
+      const reason = window.prompt(
+        `Suspender ${profile.nome || profile.email}?\nIndica o motivo (fica registado; o aluno verá que a conta está suspensa):`,
+        "Partilha da conta confirmada (condições do serviço)",
+      );
+      if (reason === null) return;
+      const { error } = await supabase.from("account_suspensions").insert({
+        user_id: profile.user_id, reason: reason.trim() || null, suspended_by: user?.id,
+      });
+      if (error) { toast.error("Erro ao suspender a conta."); return; }
+      toast.success("Conta suspensa.");
+    }
+    refetch();
   };
 
   const filtered = profiles.filter((p) => {
@@ -218,6 +261,13 @@ export default function AdminPage() {
                       <td className="p-4">
                         <div className="font-medium text-sm">{p.nome || "Sem nome"}</div>
                         <div className="text-xs text-muted-foreground">{p.email}</div>
+                        <div className={`text-[10px] mt-1 ${SHARING_HINT(p) ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
+                          {p.devices} {p.devices === 1 ? "dispositivo" : "dispositivos"} · {p.transfers30d} {p.transfers30d === 1 ? "transferência" : "transferências"} (30 dias)
+                          {SHARING_HINT(p) && " · analisar"}
+                        </div>
+                        {p.suspended && (
+                          <Badge variant="destructive" className="text-[10px] mt-1">Suspensa{p.suspended.reason ? `: ${p.suspended.reason}` : ""}</Badge>
+                        )}
                       </td>
                       <td className="p-4 text-sm">{p.ano_escolar || "—"}</td>
                       <td className="p-4">
@@ -228,6 +278,11 @@ export default function AdminPage() {
                           {p.plan === "Premium" && <Crown className="w-3 h-3 mr-1" />}
                           {p.plan}
                         </Badge>
+                        {p.plan_source && (
+                          <div className="text-[10px] text-muted-foreground mt-1">
+                            {{ admin: "Admin · acesso total", school: "Via escola", manual: "Atribuído pelo admin", stripe: "Subscrição Stripe" }[p.plan_source]}
+                          </div>
+                        )}
                         {p.subscription_end && (
                           <div className="text-[10px] text-muted-foreground mt-1">
                             até {new Date(p.subscription_end).toLocaleDateString("pt-PT")}
@@ -249,7 +304,11 @@ export default function AdminPage() {
                       </td>
                       <td className="p-4">
                         <div className="flex gap-2 flex-wrap">
-                          {p.plan === "Gratuito" ? (
+                          {p.plan_source === "admin" || p.plan_source === "school" ? (
+                            <span className="text-xs text-muted-foreground self-center px-1">
+                              {p.plan_source === "admin" ? "Acesso total" : "Gerido pela escola"}
+                            </span>
+                          ) : p.plan === "Gratuito" ? (
                             <Button
                               size="sm"
                               variant="outline"
@@ -268,6 +327,16 @@ export default function AdminPage() {
                               onClick={() => changePlan(p, "Gratuito")}
                             >
                               {changingPlan === p.user_id ? "..." : "↓ Gratuito"}
+                            </Button>
+                          )}
+                          {p.user_id !== user?.id && (
+                            <Button
+                              size="sm"
+                              variant={p.suspended ? "outline" : "ghost"}
+                              className={`text-xs h-7 ${p.suspended ? "" : "text-destructive hover:text-destructive"}`}
+                              onClick={() => toggleSuspension(p)}
+                            >
+                              {p.suspended ? "Reativar" : "Suspender"}
                             </Button>
                           )}
                           {(["admin", "moderator"] as const).map((role) => {

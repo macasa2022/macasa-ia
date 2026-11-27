@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getDeviceId } from "@/lib/device";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mentor-ai`;
 
@@ -28,6 +29,7 @@ export async function streamChat({
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
+        "x-device-id": getDeviceId(),
       },
       body: JSON.stringify({ messages, year, subject }),
     });
@@ -76,12 +78,15 @@ export async function solveExercise({
   year,
   subject,
   imageBase64,
+  sessionId,
 }: {
   exercise: string;
   mode: string;
   year?: string;
   subject?: string;
   imageBase64?: string;
+  /** Igual em todos os passos do mesmo exercício: o servidor conta-o como 1 pergunta. */
+  sessionId?: string;
 }) {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -91,8 +96,9 @@ export async function solveExercise({
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
+      "x-device-id": getDeviceId(),
     },
-    body: JSON.stringify({ exercise, mode, year, subject, imageBase64 }),
+    body: JSON.stringify({ exercise, mode, year, subject, imageBase64, session_id: sessionId }),
   });
 
   if (!resp.ok) {
@@ -101,4 +107,22 @@ export async function solveExercise({
   }
 
   return resp.json();
+}
+
+/** Pede à IA um plano de estudo para 7 dias com base no histórico (fica guardado no servidor). */
+export async function generateStudyPlan() {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const resp = await fetch(CHAT_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      "x-device-id": getDeviceId(),
+    },
+    body: JSON.stringify({ mode: "study_plan" }),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.error || `Erro ${resp.status}`);
+  return data;
 }

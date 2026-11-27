@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { getStripeKey } from "../_shared/stripe-config.ts";
+import { getStripePremium } from "../_shared/stripe-premium.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,9 +28,6 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
-
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header provided");
 
@@ -39,39 +38,42 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    // 1) Premium sem Stripe: admin, escola ou atribuído manualmente por um admin
+    const { data: manualOrSchool } = await supabaseClient.rpc("is_premium_user", { _user_id: user.id });
+    if (manualOrSchool) {
+      logStep("Premium (admin/escola/manual)");
+      return new Response(JSON.stringify({ subscribed: true, subscription_end: null, source: "manual" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
 
-    if (customers.data.length === 0) {
-      logStep("No customer found");
+    // 2) Stripe (só se estiver configurado)
+    const stripeKey = getStripeKey();
+    if (!stripeKey) {
+      logStep("Stripe não configurado — plano gratuito");
       return new Response(JSON.stringify({ subscribed: false }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
 
-    const customerId = customers.data[0].id;
-    logStep("Found Stripe customer", { customerId });
+    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+    const st = await getStripePremium(stripe, user.email);
+    logStep("Stripe premium", { state: st.state, subscription: st.subscription_id });
 
-    const [activeSubs, trialSubs] = await Promise.all([
-      stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 }),
-      stripe.subscriptions.list({ customer: customerId, status: "trialing", limit: 1 }),
-    ]);
-
-    const subscription = activeSubs.data[0] || trialSubs.data[0];
-    const hasActiveSub = !!subscription;
-    let subscriptionEnd = null;
-
-    if (hasActiveSub) {
-      subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-      logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
-    } else {
-      logStep("No active subscription found");
-    }
+    // Guardar a confirmação para a função da IA não ter de consultar o Stripe em cada pergunta
+    await supabaseClient.from("stripe_premium_cache").upsert({
+      user_id: user.id, premium: st.premium, checked_at: new Date().toISOString(),
+    });
 
     return new Response(JSON.stringify({
-      subscribed: hasActiveSub,
-      subscription_end: subscriptionEnd,
+      subscribed: st.premium,
+      subscription_end: st.period_end,
+      source: st.premium ? "stripe" : null,
+      state: st.state,                 // active | grace | pending_first | none
+      due_date: st.due_date,           // prazo da fatura por pagar (se houver)
+      invoice_url: st.invoice_url,     // link para pagar a fatura (se houver)
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

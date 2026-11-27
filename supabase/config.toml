@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.decide-subject-change]
 verify_jwt = true
+
+# Desenvolvimento local (supabase start)
+[auth]
+site_url = "http://localhost:8080"
+additional_redirect_urls = ["http://127.0.0.1:8080", "http://localhost:8080"]
+minimum_password_length = 8

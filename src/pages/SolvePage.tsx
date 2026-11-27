@@ -18,6 +18,9 @@ import PracticeNextCard from "@/components/solve/PracticeNextCard";
 import HintInteractionCard from "@/components/solve/HintInteractionCard";
 import ProfessorModeBlock from "@/components/solve/ProfessorModeBlock";
 import { getPrimarySubject, normalizeSubjectName } from "@/lib/subjects";
+import { saveAttempt } from "@/lib/attempts";
+import { fileToCompressedDataUrl } from "@/lib/image";
+import { useQueryClient } from "@tanstack/react-query";
 
 const subjects = [
   { id: "Matemática", icon: BookOpen, color: "text-blue-600 dark:text-blue-400" },
@@ -72,7 +75,8 @@ const safeJoin = (value: unknown) => (
 );
 
 export default function SolvePage() {
-  const { profile, isAdmin, isPremium, loading: authLoading } = useAuth();
+  const { user, profile, isAdmin, isPremium, loading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
   const { isOnCooldown, isLimited, showWarning, remaining, recordQuestion, getCooldownTimeLeft } = useUsageLimit();
   
   // For free non-admin users, lock to their enrolled discipline.
@@ -115,9 +119,10 @@ export default function SolvePage() {
       return;
     }
     setImageFile(file);
-    const reader = new FileReader();
-    reader.onload = (e) => setImagePreview(e.target?.result as string);
-    reader.readAsDataURL(file);
+    // Reduz fotos grandes (telemóvel) antes de mostrar e enviar à IA
+    fileToCompressedDataUrl(file)
+      .then(setImagePreview)
+      .catch(() => toast.error("Não foi possível ler a imagem."));
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -167,11 +172,13 @@ export default function SolvePage() {
       }
 
       const imgData = imagePreview || undefined;
+      // Um id por exercício: os 4 passos contam como 1 pergunta no plano gratuito
+      const sessionId = crypto.randomUUID();
       
       // Step 1: Analysis - send image here
       let analysis: any = null;
       try {
-        analysis = await solveExercise({ exercise: text, mode: "solve_analyze", year, subject, imageBase64: imgData });
+        analysis = await solveExercise({ exercise: text, mode: "solve_analyze", year, subject, imageBase64: imgData, sessionId });
       } catch (err: any) {
         toast.error("Erro na análise: " + (err.message || "Tenta novamente."));
         return;
@@ -197,25 +204,43 @@ export default function SolvePage() {
         : text;
 
       // Step 2: Strategy - use text summary, no image
+      let strategy: any = null;
       try {
-        const strategy = await solveExercise({ exercise: analysisContext, mode: "solve_strategy", year, subject });
+        strategy = await solveExercise({ exercise: analysisContext, mode: "solve_strategy", year, subject, sessionId });
         setResult(prev => ({ ...prev, strategy }));
       } catch { /* non-critical */ }
 
       // Step 3: Solution - use text summary, no image
+      let solution: any = null;
       try {
-        const solution = await solveExercise({ exercise: analysisContext, mode, year, subject });
+        solution = await solveExercise({ exercise: analysisContext, mode, year, subject, sessionId });
         setResult(prev => ({ ...prev, solution }));
       } catch (err: any) {
         toast.error("Erro na resolução: " + (err.message || "Tenta novamente."));
       }
 
       // Step 4: Practice - use text summary, no image
+      let practice: any = null;
       if (["solve_resolve", "solve_explain", "solve_professor"].includes(mode)) {
         try {
-          const practice = await solveExercise({ exercise: analysisContext, mode: "solve_practice", year, subject });
+          practice = await solveExercise({ exercise: analysisContext, mode: "solve_practice", year, subject, sessionId });
           setResult(prev => ({ ...prev, practice }));
         } catch { /* non-critical */ }
+      }
+
+      // Guardar no histórico (só se houve resolução)
+      if (user && solution) {
+        await saveAttempt({
+          userId: user.id,
+          selectedSubject: subject,
+          year,
+          mode,
+          exerciseText: text || "(imagem)",
+          hasImage: !!imgData,
+          analysis,
+          result: { analysis, strategy, solution, practice },
+        });
+        queryClient.invalidateQueries({ queryKey: ["exercise-attempts"] });
       }
 
       setHasResult(true);

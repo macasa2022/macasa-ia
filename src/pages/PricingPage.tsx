@@ -5,7 +5,7 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ContactFormDialog } from "@/components/ContactFormDialog";
 import { Seo } from "@/components/Seo";
@@ -29,7 +29,15 @@ const plans = [
 ];
 
 export default function PricingPage() {
-  const { user, isPremium } = useAuth();
+  const { user, isPremium, checkSubscription, paymentState, pendingInvoiceUrl } = useAuth();
+
+  // Ao voltar da janela de pagamento, atualizar o plano
+  useEffect(() => {
+    if (!user) return;
+    const onFocus = () => { checkSubscription(); };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [user]);
   const [loadingCheckout, setLoadingCheckout] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
 
@@ -45,15 +53,26 @@ export default function PricingPage() {
       return;
     }
 
+    // Abrir a janela já no clique (evita o bloqueio de pop-ups) e preenchê-la depois
+    const payWindow = window.open("", "_blank");
     setLoadingCheckout(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout");
-      if (error) throw error;
+      if (error || data?.error) throw new Error(data?.error || error?.message);
+      if (data?.already_premium) {
+        payWindow?.close();
+        toast.success("Já tens o plano Premium ativo.");
+        checkSubscription();
+        return;
+      }
       if (data?.url) {
-        window.open(data.url, "_blank");
+        if (payWindow) payWindow.location.href = data.url;
+        else window.location.href = data.url;
+        toast.info("Conclui o pagamento na nova janela (cartão ou MB WAY).");
       }
     } catch (err: any) {
-      toast.error(err.message || "Erro ao iniciar checkout.");
+      payWindow?.close();
+      toast.error(err.message || "Erro ao iniciar o pagamento.");
     } finally {
       setLoadingCheckout(false);
     }
@@ -84,6 +103,12 @@ export default function PricingPage() {
           <h1 className="text-2xl md:text-3xl font-bold mb-2">Planos e Preços</h1>
           <p className="text-muted-foreground">Escolhe o plano certo para o teu estudo.</p>
         </motion.div>
+        {paymentState === "pending_first" && pendingInvoiceUrl && (
+          <div className="mb-8 rounded-xl border border-primary/30 bg-primary/5 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <p className="text-sm flex-1"><strong>Tens um pagamento do Premium por concluir.</strong> O Premium fica ativo assim que pagares a fatura.</p>
+            <a href={pendingInvoiceUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">Concluir pagamento</a>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {plans.map((p, i) => (
             <motion.div key={i} className={`bg-card rounded-xl p-8 border ${p.popular ? "border-primary shadow-glow" : "border-border/50 shadow-card"} relative`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
@@ -114,6 +139,11 @@ export default function PricingPage() {
                 <Button variant={p.popular ? "hero" : "outline"} className="w-full" asChild>
                   <Link to="/signup">{p.popular ? "Começar Premium" : p.name === "Escola" ? "Contactar" : "Escolher plano"}</Link>
                 </Button>
+              )}
+              {p.name === "Premium" && (
+                <p className="text-[11px] text-muted-foreground text-center mt-3">
+                  Pagamento mensal por cartão ou MB WAY. Recebes a fatura por email todos os meses e tens 2 dias para a pagar.
+                </p>
               )}
             </motion.div>
           ))}

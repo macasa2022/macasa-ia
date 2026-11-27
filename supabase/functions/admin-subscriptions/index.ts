@@ -1,174 +1,129 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { getStripeKey } from "../_shared/stripe-config.ts";
+import { getStripePremium } from "../_shared/stripe-premium.ts";
+
+// Gestão de planos pelo admin.
+// - Premium manual (tabela manual_premium_members) funciona SEM Stripe.
+// - Se o Stripe estiver configurado, as subscrições pagas também aparecem e
+//   podem ser canceladas no "↓ Gratuito".
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const PREMIUM_PRICE_ID = "price_1TIySVFe9lD6nlF4sh5D9WWP";
+type PlanSource = "admin" | "school" | "manual" | "stripe" | null;
+type PlanInfo = { plan: "Premium" | "Gratuito"; source: PlanSource; subscription_id: string | null; subscription_end: string | null };
 
-const logStep = (step: string, details?: any) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[ADMIN-SUBS] ${step}${detailsStr}`);
-};
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+const logStep = (step: string, details?: unknown) =>
+  console.log(`[ADMIN-SUBS] ${step}${details ? ` - ${JSON.stringify(details)}` : ""}`);
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const supabaseClient = createClient(
+  const supabase = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    { auth: { persistSession: false } }
+    { auth: { persistSession: false } },
   );
 
   try {
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
-
-    // Verify admin
+    // --- Verificar admin ---
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header provided");
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError) throw new Error(`Authentication error: ${userError.message}`);
+    const { data: userData, error: userError } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
+    if (userError || !userData.user) throw new Error("Not authenticated");
     const adminUser = userData.user;
-    if (!adminUser) throw new Error("Not authenticated");
+    const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: adminUser.id, _role: "admin" });
+    if (!isAdmin) return json({ error: "Unauthorized: admin role required" }, 403);
 
-    const { data: isAdmin } = await supabaseClient.rpc("has_role", {
-      _user_id: adminUser.id,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("Unauthorized: admin role required");
+    const stripeKey = getStripeKey();
+    const stripe = stripeKey ? new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" }) : null;
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const body = await req.json().catch(() => ({}));
-    const { action } = body;
-    logStep("Action requested", { action });
+    const action = body.action || "list";
+    logStep("Action requested", { action, stripe: !!stripe });
 
-    // LIST
-    if (!action || action === "list") {
-      const { data: profiles } = await supabaseClient
-        .from("profiles")
-        .select("user_id, email");
+    // Resolver user_id (aceita user_id ou user_email)
+    const resolveUserId = async (): Promise<string> => {
+      if (body.user_id) return body.user_id;
+      if (!body.user_email) throw new Error("user_id ou user_email obrigatório");
+      const { data } = await supabase.from("profiles").select("user_id").eq("email", body.user_email).maybeSingle();
+      if (!data?.user_id) throw new Error("Utilizador não encontrado");
+      return data.user_id;
+    };
 
-      const subscriptionMap: Record<string, { plan: string; subscription_id: string | null; subscription_end: string | null }> = {};
+    // ---------------- LIST ----------------
+    if (action === "list") {
+      const [{ data: profiles }, { data: manual }, { data: school }, { data: admins }] = await Promise.all([
+        supabase.from("profiles").select("user_id, email"),
+        supabase.from("manual_premium_members").select("user_id"),
+        supabase.from("school_premium_members").select("user_id").not("user_id", "is", null),
+        supabase.from("user_roles").select("user_id").eq("role", "admin"),
+      ]);
+      const manualSet = new Set((manual || []).map((r) => r.user_id));
+      const schoolSet = new Set((school || []).map((r) => r.user_id));
+      const adminSet = new Set((admins || []).map((r) => r.user_id));
 
-      for (const profile of (profiles || [])) {
-        if (!profile.email) {
-          subscriptionMap[profile.user_id] = { plan: "Gratuito", subscription_id: null, subscription_end: null };
-          continue;
-        }
-        try {
-          const customers = await stripe.customers.list({ email: profile.email, limit: 1 });
-          if (customers.data.length === 0) {
-            subscriptionMap[profile.user_id] = { plan: "Gratuito", subscription_id: null, subscription_end: null };
-            continue;
+      const subscriptions: Record<string, PlanInfo> = {};
+      for (const p of profiles || []) {
+        const free: PlanInfo = { plan: "Gratuito", source: null, subscription_id: null, subscription_end: null };
+        if (manualSet.has(p.user_id)) { subscriptions[p.user_id] = { ...free, plan: "Premium", source: "manual" }; continue; }
+        if (schoolSet.has(p.user_id)) { subscriptions[p.user_id] = { ...free, plan: "Premium", source: "school" }; continue; }
+
+        let info: PlanInfo = free;
+        if (stripe && p.email) {
+          try {
+            const st = await getStripePremium(stripe, p.email);
+            if (st.premium) {
+              info = { plan: "Premium", source: "stripe", subscription_id: st.subscription_id, subscription_end: st.period_end };
+            }
+          } catch (e) {
+            logStep("Stripe lookup failed", { user_id: p.user_id, error: String(e) });
           }
-          // Check both active and trialing subscriptions
-          const customerId = customers.data[0].id;
-          const [activeSubs, trialSubs] = await Promise.all([
-            stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 }),
-            stripe.subscriptions.list({ customer: customerId, status: "trialing", limit: 1 }),
-          ]);
-          const sub = activeSubs.data[0] || trialSubs.data[0];
-          if (sub) {
-            subscriptionMap[profile.user_id] = {
-              plan: "Premium",
-              subscription_id: sub.id,
-              subscription_end: new Date(sub.current_period_end * 1000).toISOString(),
-            };
-          } else {
-            subscriptionMap[profile.user_id] = { plan: "Gratuito", subscription_id: null, subscription_end: null };
-          }
-        } catch (e) {
-          logStep("Error checking subscription for user", { user_id: profile.user_id, error: String(e) });
-          subscriptionMap[profile.user_id] = { plan: "Gratuito", subscription_id: null, subscription_end: null };
         }
+        // Admin sem outro plano: acesso total
+        if (info.plan === "Gratuito" && adminSet.has(p.user_id)) info = { ...free, plan: "Premium", source: "admin" };
+        subscriptions[p.user_id] = info;
       }
-
-      return new Response(JSON.stringify({ subscriptions: subscriptionMap }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ subscriptions, stripe_configured: !!stripe });
     }
 
-    // UPGRADE
+    // ---------------- UPGRADE (Premium manual) ----------------
     if (action === "upgrade") {
-      const { user_email } = body;
-      if (!user_email) throw new Error("user_email required");
-      logStep("Upgrading user", { user_email });
-
-      const customers = await stripe.customers.list({ email: user_email, limit: 1 });
-      let customerId: string;
-      if (customers.data.length > 0) {
-        customerId = customers.data[0].id;
-      } else {
-        const customer = await stripe.customers.create({ email: user_email });
-        customerId = customer.id;
-      }
-      logStep("Customer ID", { customerId });
-
-      // Check if already has active subscription
-      const existingSubs = await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 });
-      if (existingSubs.data.length > 0) {
-        logStep("Already has active subscription");
-        return new Response(JSON.stringify({ success: true, message: "Already premium" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Create subscription with payment_behavior that doesn't require immediate payment
-      const subscription = await stripe.subscriptions.create({
-        customer: customerId,
-        items: [{ price: PREMIUM_PRICE_ID }],
-        payment_behavior: "default_incomplete",
-        payment_settings: { save_default_payment_method: "on_subscription" },
-        trial_period_days: 36500, // ~100 years trial for admin-granted subscriptions
-      });
-      logStep("Subscription created", { subscriptionId: subscription.id });
-
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const userId = await resolveUserId();
+      const { error } = await supabase
+        .from("manual_premium_members")
+        .upsert({ user_id: userId, granted_by: adminUser.id, note: body.note ?? null }, { onConflict: "user_id" });
+      if (error) throw new Error(error.message);
+      logStep("Manual premium granted", { userId });
+      return json({ success: true });
     }
 
-    // DOWNGRADE
+    // ---------------- DOWNGRADE ----------------
     if (action === "downgrade") {
-      const { subscription_id, user_email } = body;
-      logStep("Downgrading", { subscription_id, user_email });
+      const userId = await resolveUserId();
+      const { error } = await supabase.from("manual_premium_members").delete().eq("user_id", userId);
+      if (error) throw new Error(error.message);
 
-      if (subscription_id) {
-        await stripe.subscriptions.cancel(subscription_id);
-      } else if (user_email) {
-        const customers = await stripe.customers.list({ email: user_email, limit: 1 });
-        if (customers.data.length > 0) {
-          const subs = await stripe.subscriptions.list({ customer: customers.data[0].id, status: "active" });
-          for (const sub of subs.data) {
-            await stripe.subscriptions.cancel(sub.id);
-          }
-          // Also cancel trialing subscriptions
-          const trialSubs = await stripe.subscriptions.list({ customer: customers.data[0].id, status: "trialing" });
-          for (const sub of trialSubs.data) {
-            await stripe.subscriptions.cancel(sub.id);
-          }
-        }
+      // Se tiver subscrição Stripe (paga ou antiga atribuída pelo admin), cancelar também
+      if (stripe && body.subscription_id) {
+        await stripe.subscriptions.cancel(body.subscription_id);
+        logStep("Stripe subscription cancelled", { subscription_id: body.subscription_id });
       }
-
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      logStep("Downgraded", { userId });
+      return json({ success: true });
     }
 
-    throw new Error("Invalid action");
+    return json({ error: "Invalid action" }, 400);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR", { message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    const message = error instanceof Error ? error.message : String(error);
+    logStep("ERROR", { message });
+    return json({ error: message }, 500);
   }
 });

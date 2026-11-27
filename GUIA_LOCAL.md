@@ -16,7 +16,7 @@ Respondo (5542x) e o METAMORFOSE (5532x):
 | API | http://127.0.0.1:54321 |
 | Base de dados | 127.0.0.1:54322 |
 | Studio | http://127.0.0.1:54323 |
-| Mailpit (emails de teste) | http://127.0.0.1:54324 |
+| Mailpit (emails de teste, `local_smtp`) | http://127.0.0.1:54324 |
 | Site | http://localhost:8080 |
 
 ⚠️ O Supabase só lê `supabase/config.toml` ao arrancar: se o mudares, `npx supabase stop` e

@@ -1,12 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { AIError, completeText, streamOpenAICompatible } from "../_shared/anthropic.ts";
+import { AIError, completeText, streamOpenAICompatible } from "../_shared/ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-device-id, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+// Regra comum para as fórmulas (o frontend mostra-as com KaTeX).
+const MATH_RULE = "\n\nFÓRMULAS: escreve fórmulas, variáveis com índices e unidades em LaTeX entre $...$ " +
+  "(ex.: $v_0 = 0\\,\\text{m/s}$, $a = \\frac{v - v_0}{t}$). Não uses $ para mais nada. " +
+  "Dentro do JSON, escapa as barras invertidas (\\\\frac).";
 
 const SYSTEM_PROMPTS: Record<string, string> = {
   solve_analyze: `És o MENTOR DAS EXATAS — um tutor pedagógico de elite para alunos do 7º ao 12º ano em Matemática, Física e Química.
@@ -201,7 +206,7 @@ PERGUNTAS FORA DO ÂMBITO:
 
 FORMATO:
 - Usa markdown para estruturar as respostas
-- Destaca fórmulas com **negrito** ou blocos de código
+- Escreve todas as fórmulas, variáveis com índices e unidades em LaTeX entre $...$ (ex.: $v_0$, $a = \\frac{v - v_0}{t}$); fórmulas em destaque entre $$...$$. Nunca uses blocos de código para fórmulas
 - Usa listas numeradas para passos
 - Inclui secções claras com títulos ##
 
@@ -219,12 +224,41 @@ function canonicalSubject(v: unknown): string | null {
 const SESSION_INACTIVITY_MIN = Number(Deno.env.get("SESSION_INACTIVITY_MIN") || "60");
 const SESSION_MAX_HOURS = Number(Deno.env.get("SESSION_MAX_HOURS") || "12");
 
+// Comandos LaTeX que começam por letras que, em JSON, são escapes (\b \f \n \r \t \u).
+// Ex.: a IA escreve "\text{m}" com uma só barra -> JSON lê \t (tabulação) + "ext{m}".
+const LATEX_ESCAPE_LOOKALIKES = new Set([
+  "text", "textbf", "textit", "textrm", "times", "theta", "tau", "tan", "tanh", "to", "top", "tfrac", "tilde",
+  "frac", "forall", "flat", "beta", "bar", "binom", "boldsymbol", "bf", "bmod", "bot", "big", "bigl", "bigr",
+  "bigg", "biggl", "biggr", "nu", "neq", "ne", "nabla", "neg", "newline", "not", "notin", "nmid", "rightarrow",
+  "right", "rho", "rm", "rangle", "rfloor", "rceil", "underline", "uparrow", "upsilon", "underbrace",
+]);
+
+/** Duplica as barras de LaTeX que a IA não escapou no JSON (sem tocar nos escapes reais, como \n). */
+export function fixLatexEscapes(raw: string): string {
+  let out = "";
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch !== "\\") { out += ch; continue; }
+    const next = raw[i + 1] ?? "";
+    if (next === "\\" || next === '"' || next === "/") { out += ch + next; i++; continue; } // escape válido
+    const word = /^[a-zA-Z]+/.exec(raw.slice(i + 1))?.[0] ?? "";
+    if ("bfnrtu".includes(next) && next !== "") {
+      const isUnicode = next === "u" && /^u[0-9a-fA-F]{4}/.test(raw.slice(i + 1, i + 6));
+      if (!isUnicode && LATEX_ESCAPE_LOOKALIKES.has(word)) { out += "\\\\"; continue; }
+      if (next !== "u" || isUnicode) { out += ch; continue; } // \n, \t… verdadeiros
+    }
+    out += "\\\\"; // escape inválido em JSON (\sqrt, \cdot, \alpha…): é LaTeX
+  }
+  return out;
+}
+
 function parseAiJson(content: string): any {
+  const cleaned = fixLatexEscapes(content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
   try {
-    return JSON.parse(content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
+    return JSON.parse(cleaned);
   } catch {
     try {
-      const m = content.match(/\{[\s\S]*\}/);
+      const m = cleaned.match(/\{[\s\S]*\}/);
       return m ? JSON.parse(m[0]) : { raw: content };
     } catch {
       return { raw: content };
@@ -242,6 +276,7 @@ function aiErrorResponse(err: unknown) {
   if (err instanceof AIError) {
     if (err.status === 429) return json("Demasiados pedidos. Aguarda um momento.", 429);
     if (err.status === 402) return json("Créditos esgotados.", 402);
+    if (err.status === 503) return json("A IA local não está disponível. Confirma que o Ollama está aberto.", 503);
   }
   console.error("AI error:", err);
   return json("Erro na IA", 500);
@@ -289,7 +324,8 @@ serve(async (req) => {
     const isAdmin = !!isAdminData;
 
     const body = await req.json();
-    const { messages, mode, exercise, year, imageBase64 } = body;
+    const { messages, mode, exercise, imageBase64 } = body;
+    let year: string | undefined = body.year;
     let subject: string | undefined = body.subject;
 
     // CONTA SUSPENSA (decisão manual de um admin)
@@ -333,7 +369,9 @@ serve(async (req) => {
     let enrolledSubject: string | null = null;
     if (!isPremiumUser) {
       const { data: prof } = await adminClient
-        .from("profiles").select("disciplinas_favoritas").eq("user_id", user.id).maybeSingle();
+        .from("profiles").select("disciplinas_favoritas, ano_escolar").eq("user_id", user.id).maybeSingle();
+      // O ano escolar do plano gratuito é o do perfil (o que vem do browser é ignorado).
+      if (prof?.ano_escolar) year = prof.ano_escolar;
       enrolledSubject = (prof?.disciplinas_favoritas || []).map(canonicalSubject).find(Boolean) ?? null;
       if (!enrolledSubject) {
         return jsonResponse({ error: "Configura a tua disciplina nas Definições para continuar.", code: "no_subject" }, 403);
@@ -398,7 +436,7 @@ serve(async (req) => {
         content = await completeText([
           { role: "system", content: systemPrompt },
           { role: "user", content: `Histórico recente (mais recente primeiro):\n${history}` },
-        ], 3000);
+        ], 3000, true);
       } catch (err) {
         return aiErrorResponse(err);
       }
@@ -434,7 +472,7 @@ serve(async (req) => {
     }
 
     if (mode && mode.startsWith("solve_")) {
-      systemPrompt = SYSTEM_PROMPTS[mode] || SYSTEM_PROMPTS.solve_resolve;
+      systemPrompt = (SYSTEM_PROMPTS[mode] || SYSTEM_PROMPTS.solve_resolve) + MATH_RULE;
 
       const context = `\n\nContexto: Ano escolar: ${year || "não especificado"}. Disciplina: ${subject || "não especificada"}.`;
       systemPrompt += context;
@@ -464,7 +502,7 @@ serve(async (req) => {
 
       let content: string;
       try {
-        content = (await completeText(aiMessages as any, 4096)) || "{}";
+        content = (await completeText(aiMessages as any, 4096, true)) || "{}";
       } catch (err) {
         return aiErrorResponse(err);
       }

@@ -16,7 +16,9 @@ export default function SettingsPage() {
   // #seguranca no endereço abre logo esse separador (link do email de aviso)
   const [activeTab, setActiveTab] = useState(() =>
     typeof window !== "undefined" && window.location.hash === "#seguranca" ? "seguranca" : "perfil");
-  const { profile, user, refreshProfile, isPremium, subscriptionEnd } = useAuth();
+  const { profile, user, refreshProfile, isPremium, isAdmin, subscriptionEnd } = useAuth();
+  // Plano gratuito: o ano escolar só é mudado pelo administrador.
+  const yearLocked = !isPremium && !isAdmin && !!profile?.ano_escolar;
   const { theme, setTheme } = useTheme();
   const [saving, setSaving] = useState(false);
   const [loadingPortal, setLoadingPortal] = useState(false);
@@ -51,7 +53,7 @@ export default function SettingsPage() {
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ nome: trimmedNome, ano_escolar: anoEscolar, updated_at: new Date().toISOString() })
+      .update({ nome: trimmedNome, ...(yearLocked ? {} : { ano_escolar: anoEscolar }), updated_at: new Date().toISOString() })
       .eq("user_id", user.id);
     setSaving(false);
     if (error) {
@@ -144,9 +146,16 @@ export default function SettingsPage() {
               </div>
               <div>
                 <Label>Ano escolar</Label>
-                <select value={anoEscolar} onChange={e => setAnoEscolar(e.target.value)} className="w-full mt-1.5 border border-border rounded-lg px-3 py-2 bg-background text-sm">
+                <select value={anoEscolar} onChange={e => !yearLocked && setAnoEscolar(e.target.value)} disabled={yearLocked}
+                  aria-describedby={yearLocked ? "settings-year-help" : undefined}
+                  className="w-full mt-1.5 border border-border rounded-lg px-3 py-2 bg-background text-sm disabled:opacity-100 disabled:cursor-default disabled:bg-muted/40">
                   {["7º ano", "8º ano", "9º ano", "10º ano", "11º ano", "12º ano"].map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
+                {yearLocked && (
+                  <p id="settings-year-help" className="text-xs text-muted-foreground mt-1">
+                    No plano gratuito, o ano escolar só pode ser alterado pelo administrador. Passaste de ano? Contacta o administrador.
+                  </p>
+                )}
               </div>
               <Button variant="hero" onClick={handleSaveProfile} disabled={saving}>
                 {saving ? "A guardar..." : "Guardar alterações"}

@@ -2,10 +2,6 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
-/**
- * Converts render-blocking CSS <link> tags to non-blocking preloads
- * with a fallback noscript block for no-JS environments.
- */
 // Só em desenvolvimento (npm run dev): permite ao browser ligar-se ao Supabase local.
 // Em produção (npm run build) a CSP do index.html fica inalterada.
 function localSupabaseCspPlugin(): Plugin {
@@ -21,6 +17,7 @@ function localSupabaseCspPlugin(): Plugin {
   };
 }
 
+/** Converte os <link> de CSS em preload não bloqueante (com <noscript> de recurso). */
 function cssPreloadPlugin(): Plugin {
   return {
     name: 'css-preload',
@@ -40,8 +37,13 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    strictPort: true, // se a 8080 estiver ocupada, falha em vez de mudar de porta (o login depende dela)
     hmr: {
       overlay: false,
+    },
+    // Não recarregar a página quando os testes escrevem relatórios.
+    watch: {
+      ignored: ["**/e2e-relatorio/**", "**/test-results/**", "**/playwright-report/**"],
     },
   },
   plugins: [react(), cssPreloadPlugin(), localSupabaseCspPlugin()],

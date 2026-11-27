@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Dumbbell, ArrowUp, ArrowDown, Equal, HelpCircle, BookOpen, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+import { MathText } from "@/components/MathText";
 type PracticeData = {
   exercicios_semelhantes?: { enunciado: string; dificuldade: string }[];
   exercicio_facil?: { enunciado: string };
@@ -74,7 +75,7 @@ export default function PracticeNextCard({
             <div className="flex items-center gap-1.5 text-xs font-medium text-primary mb-1">
               <BookOpen className="w-3.5 h-3.5" /> RESUMO DO CONCEITO
             </div>
-            <p className="text-sm leading-relaxed">{toText(data.resumo_conceito)}</p>
+            <p className="text-sm leading-relaxed"><MathText text={toText(data.resumo_conceito)} /></p>
           </div>
         )}
 
@@ -86,7 +87,7 @@ export default function PracticeNextCard({
             </div>
             <ul className="space-y-1">
               {errosComuns.map((e, i) => (
-                <li key={i} className="text-sm text-red-800 dark:text-red-300 pl-3 border-l-2 border-red-500/30">{e}</li>
+                <li key={i} className="text-sm text-red-800 dark:text-red-300 pl-3 border-l-2 border-red-500/30"><MathText text={e} /></li>
               ))}
             </ul>
           </div>
@@ -103,7 +104,7 @@ export default function PracticeNextCard({
                 className="w-full text-left p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all text-sm flex items-center gap-2"
               >
                 <Equal className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="flex-1">{ex.enunciado}</span>
+                <span className="flex-1"><MathText text={ex.enunciado} /></span>
               </button>
             ))}
           </div>
@@ -118,7 +119,7 @@ export default function PracticeNextCard({
               <div className="flex items-center gap-1.5 text-xs font-medium text-green-600 dark:text-green-400 mb-1">
                 <ArrowDown className="w-3 h-3" /> Mais fácil
               </div>
-              <p className="text-xs leading-relaxed line-clamp-2">{exercicioFacil}</p>
+              <p className="text-xs leading-relaxed line-clamp-2"><MathText text={exercicioFacil} /></p>
             </button>
           )}
           {exercicioDificil && (
@@ -129,7 +130,7 @@ export default function PracticeNextCard({
               <div className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 mb-1">
                 <ArrowUp className="w-3 h-3" /> Mais difícil
               </div>
-              <p className="text-xs leading-relaxed line-clamp-2">{exercicioDificil}</p>
+              <p className="text-xs leading-relaxed line-clamp-2"><MathText text={exercicioDificil} /></p>
             </button>
           )}
         </div>
@@ -152,7 +153,7 @@ function QuizCard({ quiz }: { quiz: { pergunta: string; opcoes: string[]; corret
       <div className="flex items-center gap-1.5 text-xs font-medium text-primary mb-2">
         <HelpCircle className="w-3.5 h-3.5" /> QUIZ RÁPIDO
       </div>
-      <p className="text-sm font-medium mb-2">{quiz.pergunta}</p>
+      <p className="text-sm font-medium mb-2"><MathText text={quiz.pergunta} /></p>
       <div className="space-y-1.5">
         {quiz.opcoes.map((opt, i) => {
           const isCorrect = opt === quiz.correta;
@@ -168,7 +169,7 @@ function QuizCard({ quiz }: { quiz: { pergunta: string; opcoes: string[]; corret
               onClick={() => { if (!revealed) setSelected(opt); }}
               className={`w-full text-left p-2 rounded-lg border text-sm transition-all ${cls}`}
             >
-              {String.fromCharCode(65 + i)}. {opt}
+              {String.fromCharCode(65 + i)}. <MathText text={opt} />
             </button>
           );
         })}
@@ -179,7 +180,7 @@ function QuizCard({ quiz }: { quiz: { pergunta: string; opcoes: string[]; corret
         </Button>
       )}
       {revealed && (
-        <p className="text-xs mt-2 p-2 rounded bg-secondary/50">{quiz.explicacao}</p>
+        <p className="text-xs mt-2 p-2 rounded bg-secondary/50"><MathText text={quiz.explicacao} /></p>
       )}
     </div>
   );

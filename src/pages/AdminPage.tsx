@@ -15,6 +15,8 @@ import SubjectChangeRequestsSection from "@/components/admin/SubjectChangeReques
 import SchoolClientsSection from "@/components/admin/SchoolClientsSection";
 import { toast } from "sonner";
 
+
+const SCHOOL_YEARS = ["7º ano", "8º ano", "9º ano", "10º ano", "11º ano", "12º ano"];
 type ProfileWithRole = {
   id: string;
   user_id: string;
@@ -151,6 +153,13 @@ export default function AdminPage() {
     refetch();
   };
 
+  const updateSchoolYear = async (userId: string, ano: string) => {
+    const { error } = await supabase.from("profiles").update({ ano_escolar: ano }).eq("user_id", userId);
+    if (error) { toast.error("Não foi possível atualizar o ano escolar: " + error.message); return; }
+    toast.success(`Ano escolar atualizado para ${ano}.`);
+    refetch();
+  };
+
   const filtered = profiles.filter((p) => {
     const matchesSearch =
       (p.nome || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -269,7 +278,17 @@ export default function AdminPage() {
                           <Badge variant="destructive" className="text-[10px] mt-1">Suspensa{p.suspended.reason ? `: ${p.suspended.reason}` : ""}</Badge>
                         )}
                       </td>
-                      <td className="p-4 text-sm">{p.ano_escolar || "—"}</td>
+                      <td className="p-4 text-sm">
+                        <select
+                          value={p.ano_escolar || ""}
+                          onChange={(e) => updateSchoolYear(p.user_id, e.target.value)}
+                          aria-label={`Ano escolar de ${p.email || "utilizador"}`}
+                          className="border border-border rounded-md px-2 py-1 bg-background text-sm"
+                        >
+                          <option value="" disabled>—</option>
+                          {SCHOOL_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                      </td>
                       <td className="p-4">
                         <Badge
                           variant={p.plan === "Premium" ? "default" : "outline"}

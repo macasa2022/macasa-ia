@@ -25,6 +25,9 @@ port = 54324
 port = 54327
 
 [edge_runtime]
+# oneshot: um processo novo por pedido. Cada passo do Resolver tem os seus 400 s
+# (com per_worker, os pedidos seguidos partilhavam o mesmo limite e o último era cortado).
+policy = "oneshot"
 inspector_port = 54328
 
 [auth]

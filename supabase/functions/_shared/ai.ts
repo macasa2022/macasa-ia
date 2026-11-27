@@ -15,6 +15,8 @@
 //                   (as funções correm dentro do Docker; "localhost" seria o próprio contentor)
 //   OLLAMA_MODEL    por omissão gemma4:e4b (lê texto e imagens)
 //   OLLAMA_NUM_CTX  janela de contexto, por omissão 8192 (os prompts do tutor são longos)
+//   OLLAMA_THINK    true/false — modo "pensar" dos modelos que o têm; por omissão false
+//                   (o raciocínio escondido gasta tokens e torna o Resolver muito lento)
 
 import * as anthropic from "./anthropic.ts";
 
@@ -55,7 +57,8 @@ function getConfig() {
   const url = (Deno.env.get("OLLAMA_URL") || "http://host.docker.internal:11434").replace(/\/+$/, "");
   const model = Deno.env.get("OLLAMA_MODEL") || DEFAULT_MODEL;
   const numCtx = Number(Deno.env.get("OLLAMA_NUM_CTX") || 8192);
-  return { url, model, numCtx };
+  const think = (Deno.env.get("OLLAMA_THINK") || "false").toLowerCase() === "true";
+  return { url, model, numCtx, think };
 }
 
 /** Converte mensagens OpenAI → mensagens do Ollama (texto + imagens em base64 puro). */
@@ -89,11 +92,13 @@ async function callOllama(messages: OpenAIMessage[], maxTokens: number, stream: 
   }
 }
 
+// Modelos sem modo "pensar" recusam o parâmetro think: lembra-se e deixa de o enviar.
+let thinkUnsupported = false;
+
 async function callOllamaOnce(messages: OpenAIMessage[], maxTokens: number, stream: boolean, json: boolean) {
-  const { url, model, numCtx } = getConfig();
-  let resp: Response;
-  try {
-    resp = await fetch(`${url}/api/chat`, {
+  const { url, model, numCtx, think } = getConfig();
+  const send = (withThink: boolean) =>
+    fetch(`${url}/api/chat`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -101,10 +106,21 @@ async function callOllamaOnce(messages: OpenAIMessage[], maxTokens: number, stre
         messages: toOllama(messages),
         stream,
         ...(json ? { format: "json" } : {}),
+        ...(withThink ? { think } : {}),
         keep_alive: "30m",
         options: { num_ctx: numCtx, num_predict: maxTokens },
       }),
     });
+  let resp: Response;
+  try {
+    resp = await send(!thinkUnsupported);
+    if (resp.status === 400 && !thinkUnsupported) {
+      const text = await resp.clone().text();
+      if (/think/i.test(text)) {
+        thinkUnsupported = true;
+        resp = await send(false);
+      }
+    }
   } catch (err) {
     console.error(`Ollama inacessível em ${url}:`, err);
     throw new AIError(503, `Ollama inacessível em ${url}. O Ollama está aberto?`);
@@ -119,10 +135,22 @@ async function callOllamaOnce(messages: OpenAIMessage[], maxTokens: number, stre
 }
 
 /** Resposta completa (não-stream). Com json=true o Ollama é obrigado a devolver JSON válido. */
+/** Escreve no terminal das funções a velocidade da resposta (para diagnóstico). */
+function logStats(kind: string, d: { eval_count?: number; eval_duration?: number; prompt_eval_count?: number; total_duration?: number; done_reason?: string }) {
+  const { model } = getConfig();
+  const secs = (ns?: number) => ((ns ?? 0) / 1e9).toFixed(1);
+  const tps = d.eval_count && d.eval_duration ? (d.eval_count / (d.eval_duration / 1e9)).toFixed(1) : "?";
+  console.log(
+    `[IA] ${model} ${kind}: ${d.eval_count ?? "?"} tokens em ${secs(d.eval_duration)} s (${tps} tok/s); ` +
+    `prompt ${d.prompt_eval_count ?? "?"} tokens; total ${secs(d.total_duration)} s; fim: ${d.done_reason ?? "?"}`,
+  );
+}
+
 export async function completeText(messages: OpenAIMessage[], maxTokens = 4096, json = false): Promise<string> {
   if (aiProvider() === "anthropic") return viaAnthropic(() => anthropic.completeText(messages, maxTokens));
   const resp = await callOllama(messages, maxTokens, false, json);
   const data = await resp.json();
+  logStats(json ? "json" : "texto", data);
   return data?.message?.content ?? "";
 }
 
@@ -153,7 +181,7 @@ export async function streamOpenAICompatible(messages: OpenAIMessage[], maxToken
           const line = buf.slice(0, nl).trim();
           buf = buf.slice(nl + 1);
           if (!line) continue;
-          let chunk: { message?: { content?: string }; done?: boolean; error?: string };
+          let chunk: { message?: { content?: string }; done?: boolean; error?: string; eval_count?: number; eval_duration?: number; prompt_eval_count?: number; total_duration?: number; done_reason?: string };
           try {
             chunk = JSON.parse(line);
           } catch {
@@ -166,6 +194,7 @@ export async function streamOpenAICompatible(messages: OpenAIMessage[], maxToken
           }
           const text = chunk.message?.content;
           if (chunk.done) {
+            logStats("stream", chunk);
             if (text) emit(controller, text);
             finish(controller);
             return;

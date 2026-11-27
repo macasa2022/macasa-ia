@@ -74,7 +74,22 @@ export function toOllama(messages: OpenAIMessage[]): OllamaMessage[] {
   });
 }
 
+// Ao carregar o modelo na GPU, o Ollama às vezes falha à primeira
+// ("llama-server process has terminated" / erro CUDA) e funciona à segunda.
+// Por isso repete uma vez, após uma pequena pausa, quando o erro é desse tipo.
 async function callOllama(messages: OpenAIMessage[], maxTokens: number, stream: boolean, json: boolean) {
+  try {
+    return await callOllamaOnce(messages, maxTokens, stream, json);
+  } catch (err) {
+    const retryable = err instanceof AIError && err.status >= 500 && err.status !== 503;
+    if (!retryable) throw err;
+    console.warn("Ollama falhou ao carregar o modelo; nova tentativa dentro de 2 s…");
+    await new Promise((r) => setTimeout(r, 2000));
+    return await callOllamaOnce(messages, maxTokens, stream, json);
+  }
+}
+
+async function callOllamaOnce(messages: OpenAIMessage[], maxTokens: number, stream: boolean, json: boolean) {
   const { url, model, numCtx } = getConfig();
   let resp: Response;
   try {

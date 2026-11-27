@@ -98,14 +98,16 @@ export default function SolvePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [subject, setSubject] = useState(enrolledSubject && enrolledSubject !== "__none__" ? enrolledSubject : "");
   const [year, setYear] = useState(profile?.ano_escolar || "");
+  // Plano gratuito: o ano escolar é só de leitura (vem do perfil).
+  const yearLocked = isFreeUser && !!profile?.ano_escolar;
 
   // Sync subject/year when profile loads asynchronously
   useEffect(() => {
     if (enrolledSubject) setSubject(enrolledSubject);
   }, [enrolledSubject]);
   useEffect(() => {
-    if (profile?.ano_escolar && !year) setYear(profile.ano_escolar);
-  }, [profile?.ano_escolar]);
+    if (profile?.ano_escolar && (!year || isFreeUser)) setYear(profile.ano_escolar);
+  }, [profile?.ano_escolar, isFreeUser]);
   const [mode, setMode] = useState("solve_resolve");
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
@@ -291,7 +293,9 @@ export default function SolvePage() {
               <s.icon className="w-4 h-4" /> {s.id}
             </button>
           ))}
-          <select value={year} onChange={(e) => setYear(e.target.value)} className="px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground">
+          <select value={year} onChange={(e) => !yearLocked && setYear(e.target.value)} disabled={yearLocked}
+            title={yearLocked ? "No plano gratuito, o ano escolar é o do teu perfil" : undefined}
+            className="px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground disabled:opacity-100 disabled:cursor-default disabled:bg-muted/40">
             <option value="">Ano escolar</option>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>

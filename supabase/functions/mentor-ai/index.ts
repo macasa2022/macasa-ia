@@ -290,7 +290,8 @@ serve(async (req) => {
     const isAdmin = !!isAdminData;
 
     const body = await req.json();
-    const { messages, mode, exercise, year, imageBase64 } = body;
+    const { messages, mode, exercise, imageBase64 } = body;
+    let year: string | undefined = body.year;
     let subject: string | undefined = body.subject;
 
     // CONTA SUSPENSA (decisão manual de um admin)
@@ -334,7 +335,9 @@ serve(async (req) => {
     let enrolledSubject: string | null = null;
     if (!isPremiumUser) {
       const { data: prof } = await adminClient
-        .from("profiles").select("disciplinas_favoritas").eq("user_id", user.id).maybeSingle();
+        .from("profiles").select("disciplinas_favoritas, ano_escolar").eq("user_id", user.id).maybeSingle();
+      // O ano escolar do plano gratuito é o do perfil (o que vem do browser é ignorado).
+      if (prof?.ano_escolar) year = prof.ano_escolar;
       enrolledSubject = (prof?.disciplinas_favoritas || []).map(canonicalSubject).find(Boolean) ?? null;
       if (!enrolledSubject) {
         return jsonResponse({ error: "Configura a tua disciplina nas Definições para continuar.", code: "no_subject" }, 403);

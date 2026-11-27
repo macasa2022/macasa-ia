@@ -148,9 +148,22 @@ export default function ChatPage() {
           queryClient.invalidateQueries({ queryKey: ["chat-conversations"] });
         }
       },
-      onError: (err) => {
+      onError: async (err) => {
         toast.error(err);
         setIsLoading(false);
+        // A pergunta falhou: tira-a da conversa e devolve-a à caixa de texto,
+        // para que voltar a enviar não a duplique.
+        if (!assistantContent) {
+          setMessages(prev => (prev[prev.length - 1]?.role === "user" ? prev.slice(0, -1) : prev));
+          setInput(content);
+          if (convId) {
+            const { data: last } = await supabase
+              .from("chat_messages").select("id")
+              .eq("conversation_id", convId).eq("role", "user").eq("content", content)
+              .order("created_at", { ascending: false }).limit(1).maybeSingle();
+            if (last?.id) await supabase.from("chat_messages").delete().eq("id", last.id);
+          }
+        }
       },
     });
   };

@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { AIError, completeText, streamOpenAICompatible } from "../_shared/ai.ts";
-import { CHAT_MAX_TOKENS, SOLVE_MAX_TOKENS, STUDY_PLAN_MAX_TOKENS, SYSTEM_PROMPTS, chatSystemPrompt, solveSystemPrompt } from "../_shared/prompts.ts";
-import { parseAiJson } from "../_shared/ai-json.ts";
+import { CHAT_MAX_TOKENS, LANG_RULE, SOLVE_MAX_TOKENS, STUDY_PLAN_MAX_TOKENS, SYSTEM_PROMPTS, chatSystemPrompt, solveSystemPrompt } from "../_shared/prompts.ts";
+import { cleanPractice, parseAiJson } from "../_shared/ai-json.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -181,7 +181,7 @@ serve(async (req) => {
         ? (attempts || []).map((a) =>
           `- ${a.created_at.slice(0, 10)} · ${a.subject || "?"} · ${a.topic || "sem tema"} · ${a.difficulty || "?"}`).join("\n")
         : "(sem exercícios resolvidos ainda)";
-      systemPrompt = SYSTEM_PROMPTS.study_plan +
+      systemPrompt = SYSTEM_PROMPTS.study_plan + LANG_RULE +
         `\n\nContexto: Ano escolar: ${prof?.ano_escolar || year || "não indicado"}. ` +
         `Disciplinas permitidas: ${allowed.join(", ")}. ` +
         `Objetivo: ${prof?.objetivo_estudo || "não indicado"}. Frequência de estudo: ${prof?.frequencia_estudo || "não indicada"}.`;
@@ -260,6 +260,7 @@ serve(async (req) => {
       }
 
       const parsed = parseAiJson(content);
+      if (mode === "solve_practice" && cleanPractice(parsed)) console.warn("[IA] quiz incoerente removido");
 
       if (enrolledSubject && parsed?.fora_da_disciplina) {
         const detected = canonicalSubject(parsed.disciplina_detetada) || parsed.disciplina_detetada || "outra disciplina";

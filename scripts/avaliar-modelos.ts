@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import {
   CHAT_MAX_TOKENS, SOLVE_MAX_TOKENS, chatSystemPrompt, solveSystemPrompt,
 } from "../supabase/functions/_shared/prompts.ts";
-import { parseAiJson } from "../supabase/functions/_shared/ai-json.ts";
+import { cleanPractice, parseAiJson } from "../supabase/functions/_shared/ai-json.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const LIMITE_APP_S = 400; // limite por pedido das Edge Functions locais (Supabase CLI)
@@ -65,7 +65,7 @@ const CASOS: Caso[] = [
 const PERGUNTA_TUTOR = "Qual a diferença entre velocidade e aceleração?";
 
 // ---------- sinais de qualidade ----------
-const PT_BR = ["você", "vocês", "ônibus", "tela", "arquivo", "equipe", "trem", "celular", "a gente", "registro", "planejar", "planejamento", "usuário", "contato", "fato de", "econômico", "Bhaskara"];
+const PT_BR = ["você", "vocês", "ônibus", "tela", "arquivo", "equipe", "trem", "celular", "a gente", "registro", "planejar", "planejamento", "usuário", "contato", "fato de", "econômico", "Bhaskara", "trinômio", "polinômio", "Resolva", "Lembre-se", "Calcule", "frear", "fazendo", "estando"];
 const PT_PT = ["tu ", "estás", "podes", "autocarro", "ecrã", "ficheiro", "equipa", "comboio", "telemóvel", "registo", "planear", "utilizador", "contacto", "facto", "económico", "fórmula resolvente"];
 function contarMarcas(texto: string, marcas: string[]) {
   const t = ` ${texto.toLowerCase()} `;
@@ -174,7 +174,7 @@ function contextoDaAnalise(a: any, enunciado: string) {
 }
 
 // ---------- execução por modelo ----------
-type ResultadoCaso = { caso: string; titulo: string; passos: Medida[]; totalS: number; certo: boolean; criterio: string };
+type ResultadoCaso = { caso: string; titulo: string; passos: Medida[]; totalS: number; certo: boolean; criterio: string; quizRejeitado: boolean };
 type Resultado = {
   modelo: string; fornecedor: "ollama" | "anthropic"; capacidades: string[]; gpuPct?: number; tamanhoGB?: number;
   cargaS?: number; casos: ResultadoCaso[]; tutor?: Medida; erro?: string;
@@ -206,9 +206,10 @@ async function avaliarCaso(caso: Caso, chamar: (system: string, user: string, im
   const ctx = contextoDaAnalise(parseAiJson(analise.texto), caso.enunciado);
   await passo("Estratégia", "solve_strategy", ctx);
   const resolucao = await passo("Resolução", "solve_resolve", ctx);
-  await passo("Prática", "solve_practice", ctx);
+  const pratica = await passo("Prática", "solve_practice", ctx);
   return {
     caso: caso.id, titulo: caso.titulo, passos, criterio: caso.criterio,
+    quizRejeitado: cleanPractice(parseAiJson(pratica.texto)),
     totalS: passos.reduce((s, p) => s + p.segundos, 0),
     certo: caso.certo(normalizar(JSON.stringify(parseAiJson(resolucao.texto)) + " " + resolucao.texto)),
   };
@@ -226,7 +227,7 @@ async function avaliarOllama(modelo: string): Promise<Resultado> {
     res.cargaS = (performance.now() - t0) / 1000;
     const ps = await (await fetch(`${OLLAMA}/api/ps`)).json();
     const m = (ps.models || []).find((x: any) => x.name === modelo || x.model === modelo);
-    if (m?.size) { res.gpuPct = Math.round((100 * (m.size_vram || 0)) / m.size); res.tamanhoGB = m.size / 1e9; }
+    if (m?.size && m.size > 5e8) { res.gpuPct = Math.round((100 * (m.size_vram || 0)) / m.size); res.tamanhoGB = m.size / 1e9; } // tamanhos < 0,5 GB vêm errados do Ollama
     console.log(`${res.cargaS.toFixed(1)} s; na GPU: ${res.gpuPct ?? "?"}% de ${res.tamanhoGB?.toFixed(1) ?? "?"} GB`);
 
     for (const caso of CASOS) {
@@ -269,8 +270,8 @@ function relatorio(resultados: Resultado[], inicio: Date) {
   L.push(`# Avaliação de modelos — MACASA IA`, "");
   L.push(`${inicio.toLocaleString("pt-PT")} · contexto ${NUM_CTX} tokens · modo pensar ${THINK ? "ligado" : "desligado"} · limite por passo na app: ${LIMITE_APP_S} s`, "");
   L.push("## Resumo", "");
-  L.push("| Modelo | Na GPU | Carga (s) | " + CASOS.map((c) => `${c.id} total (s)`).join(" | ") + " | Tutor 1.º token / total (s) | tok/s médio | JSON válido | Respostas certas | Passos > 400 s | Cortes por tokens | PT-PT / PT-BR | LaTeX estragado |");
-  L.push("|---|---|---|" + CASOS.map(() => "---").join("|") + "|---|---|---|---|---|---|---|---|");
+  L.push("| Modelo | Na GPU | Carga (s) | " + CASOS.map((c) => `${c.id} total (s)`).join(" | ") + " | Tutor 1.º token / total (s) | tok/s médio | JSON válido | Respostas certas | Quiz rejeitado | Passos > 400 s | Cortes por tokens | PT-PT / PT-BR | LaTeX estragado |");
+  L.push("|---|---|---|" + CASOS.map(() => "---").join("|") + "|---|---|---|---|---|---|---|---|---|");
   for (const r of resultados) {
     if (r.erro && !r.casos.length) { L.push(`| ${r.modelo} | ERRO: ${r.erro.replace(/\|/g, "/")} |`); continue; }
     const passos = r.casos.flatMap((c) => c.passos);
@@ -282,15 +283,16 @@ function relatorio(resultados: Resultado[], inicio: Date) {
       CASOS.map((c) => { const x = r.casos.find((rc) => rc.caso === c.id); return x ? f1(x.totalS) : "—"; }).join(" | ") +
       ` | ${f1(r.tutor?.primeiroTokenS)} / ${f1(r.tutor?.segundos)} | ${tps.length ? f1(tps.reduce((a, b) => a + b, 0) / tps.length) : "—"}` +
       ` | ${jsonOk}/${passos.length} | ${r.casos.filter((c) => c.certo).length}/${r.casos.length}` +
+      ` | ${r.casos.filter((c) => c.quizRejeitado).length}/${r.casos.length}` +
       ` | ${passos.filter((p) => p.segundos > LIMITE_APP_S).length} | ${passos.filter((p) => p.fim === "length" || p.fim === "max_tokens").length}` +
       ` | ${pt.length} / ${br.length}${br.length ? ` (${br.join(", ")})` : ""} | ${latexEstragado(texto) ? "sim" : "não"} |`);
   }
-  L.push("", "Leitura: *Na GPU* abaixo de 100% significa que parte do modelo corre no processador (mais lento). *Passos > 400 s* seriam cortados na aplicação. *PT-PT / PT-BR* conta expressões típicas de cada variante.", "");
+  L.push("", "Leitura: *Na GPU* abaixo de 100% significa que parte do modelo corre no processador (mais lento). *Passos > 400 s* seriam cortados na aplicação. *PT-PT / PT-BR* conta expressões típicas de cada variante. *Quiz rejeitado*: a aplicação esconde-o por estar incoerente.", "");
 
   for (const r of resultados) {
     L.push(`## ${r.modelo}`, "", `Capacidades: ${r.capacidades.join(", ") || "?"}${r.erro ? ` · Erro: ${r.erro}` : ""}`, "");
     for (const c of r.casos) {
-      L.push(`### ${c.titulo} — ${c.certo ? "✅ certo" : "❌ não encontrado"} (${c.criterio}) · ${f1(c.totalS)} s`, "");
+      L.push(`### ${c.titulo} — ${c.certo ? "✅ certo" : "❌ não encontrado"} (${c.criterio}) · ${f1(c.totalS)} s${c.quizRejeitado ? " · quiz rejeitado (incoerente)" : ""}`, "");
       L.push("| Passo | Tempo (s) | Tokens | tok/s | Prompt | Fim | JSON |", "|---|---|---|---|---|---|---|");
       for (const p of c.passos) L.push(`| ${p.passo} | ${f1(p.segundos)} | ${p.tokens ?? "—"} | ${f1(p.tokS)} | ${p.promptTokens ?? "—"} | ${p.fim ?? (p.erro ? "erro" : "—")} | ${p.jsonValido ? "válido" : "inválido"} |`);
       L.push("");
@@ -316,7 +318,7 @@ async function main() {
     const tags = await (await fetch(`${OLLAMA}/api/tags`)).json();
     const instalados: string[] = (tags.models || []).map((m: any) => m.name);
     modelos = pedidos ? pedidos.split(",").map((s) => s.trim()).filter(Boolean)
-      : instalados.filter((n) => !/embed/i.test(n));
+      : instalados.filter((n) => !/embed/i.test(n) && !/[:-]cloud$/i.test(n)); // :cloud precisa de conta e não é local
   } catch {
     console.error(`Não consegui falar com o Ollama em ${OLLAMA}. O Ollama está aberto?`);
     process.exit(1);

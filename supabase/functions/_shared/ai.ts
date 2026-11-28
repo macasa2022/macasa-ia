@@ -13,14 +13,14 @@
 // Variáveis (supabase/functions/.env):
 //   OLLAMA_URL      por omissão http://host.docker.internal:11434
 //                   (as funções correm dentro do Docker; "localhost" seria o próprio contentor)
-//   OLLAMA_MODEL    por omissão gemma4:e4b (lê texto e imagens)
+//   OLLAMA_MODEL    por omissão gemma4:e2b (lê texto e imagens; o mais rápido numa GPU de 4 GB)
 //   OLLAMA_NUM_CTX  janela de contexto, por omissão 8192 (os prompts do tutor são longos)
 //   OLLAMA_THINK    true/false — modo "pensar" dos modelos que o têm; por omissão false
 //                   (o raciocínio escondido gasta tokens e torna o Resolver muito lento)
 
 import * as anthropic from "./anthropic.ts";
 
-export const DEFAULT_MODEL = "gemma4:e4b";
+export const DEFAULT_MODEL = "gemma4:e2b";
 
 export function aiProvider(): "ollama" | "anthropic" {
   return (Deno.env.get("AI_PROVIDER") || "ollama").toLowerCase() === "anthropic" ? "anthropic" : "ollama";

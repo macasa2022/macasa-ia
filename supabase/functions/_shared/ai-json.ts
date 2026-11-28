@@ -41,3 +41,24 @@ export function parseAiJson(content: string): any {
     }
   }
 }
+
+const SINAIS_DE_QUIZ_ERRADO = /corre[cç][aã]o|corrigir|reavali|assumimos|n[aã]o est[aá] listad|nenhuma (das op|é)|erro na (formula|op)/i;
+
+/**
+ * Valida o quiz do modo prática e remove-o se estiver incoerente
+ * (opção certa inexistente, opções vazias ou explicação com "correções").
+ * Devolve true se o quiz foi removido.
+ */
+export function cleanPractice(p: any): boolean {
+  const q = p?.quiz;
+  if (!q || typeof q !== "object") return false;
+  const opcoes: string[] = Array.isArray(q.opcoes) ? q.opcoes.map((o: unknown) => String(o ?? "").trim()) : [];
+  const correta = String(q.correta ?? "").trim();
+  const letra = /^[A-Da-d]\b/.exec(correta)?.[0]?.toUpperCase();
+  const idx = letra ? letra.charCodeAt(0) - 65 : opcoes.findIndex((o) => o === correta);
+  const opcoesVazias = opcoes.length < 2 || opcoes.every((o) => /^[A-D][).:]?$/i.test(o));
+  const explicacao = String(q.explicacao ?? "");
+  const invalido = opcoesVazias || idx < 0 || idx >= opcoes.length || SINAIS_DE_QUIZ_ERRADO.test(explicacao);
+  if (invalido) delete p.quiz;
+  return invalido;
+}

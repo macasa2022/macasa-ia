@@ -41,3 +41,35 @@ describe("MathText", () => {
     expect(container.querySelectorAll(".katex").length).toBe(1);
   });
 });
+
+describe("MathText — matemática escrita em ASCII pela IA", () => {
+  it("formata as fórmulas ASCII das «Fórmulas relevantes» e mantém o rótulo", () => {
+    const { container } = render(<span><MathText text={"Fórmula resolvente: x = -b +/- sqrt(b^2 - 4ac)"} /></span>);
+    expect(container.querySelectorAll(".katex").length).toBe(1);
+    expect(container.textContent).toContain("Fórmula resolvente:");
+    expect(container.textContent).not.toContain("sqrt");
+    expect(container.textContent).not.toContain("+/-");
+    expect(container.querySelector(".katex .sqrt")).not.toBeNull();
+    expect(container.querySelector(".katex .mfrac")).not.toBeNull(); // o /2a em falta é reposto
+  });
+
+  it("formata ax^2 + bx + c = 0 sem $", () => {
+    const { container } = render(<span><MathText text={"Equação quadrática: ax^2 + bx + c = 0"} /></span>);
+    expect(container.querySelectorAll(".katex").length).toBe(1);
+    expect(container.textContent).not.toContain("^");
+  });
+
+  it("corrige ASCII dentro de $…$ (sqrt, +/-, Delta sem barra)", () => {
+    const { container } = render(<p><MathText text={"pela fórmula resolvente: $x = -b +/- sqrt(b^2 - 4ac)$. O discriminante ($Delta = b^2 - 4ac$)"} /></p>);
+    expect(container.querySelectorAll(".katex").length).toBe(2);
+    expect(container.textContent).not.toMatch(/sqrt|\+\/-|Delta/);
+    expect(container.textContent).toContain("Δ");
+  });
+
+  it("não transforma texto normal, preços nem LaTeX já correto", () => {
+    const { container } = render(<p><MathText text={"Velocidade inicial: 0 m/s e o preço é 9,99 €"} /></p>);
+    expect(container.querySelector(".katex")).toBeNull();
+    const ok = render(<p><MathText text={"$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$"} /></p>);
+    expect(ok.container.querySelectorAll(".katex .mfrac").length).toBe(1);
+  });
+});

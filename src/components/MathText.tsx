@@ -1,9 +1,11 @@
 import { Fragment, useMemo } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
+import { asciiParaLatex, envolverMatematicaAscii } from "@/lib/matematica-ascii";
 
 // Mostra texto da IA com as fórmulas LaTeX já formatadas (KaTeX).
-// Reconhece: $$…$$ e \[…\] (em bloco), $…$ e \(…\) (na linha) e LaTeX solto sem $ (ver delimitarLatexSolto).
+// Reconhece: $$…$$ e \[…\] (em bloco), $…$ e \(…\) (na linha), LaTeX solto sem $ (ver delimitarLatexSolto)
+// e matemática em ASCII ("x = -b +/- sqrt(b^2 - 4ac)", "Delta", "ax^2"), convertida em src/lib/matematica-ascii.ts.
 // O resto do texto fica tal como veio (as quebras de linha mantêm-se se o
 // elemento-pai tiver whitespace-pre-wrap).
 
@@ -27,12 +29,14 @@ function delimitarLatexSolto(s: string): string {
 }
 
 function render(tex: string, displayMode: boolean): string {
-  return katex.renderToString(tex, { displayMode, throwOnError: false, strict: "ignore", output: "html" });
+  return katex.renderToString(asciiParaLatex(tex), { displayMode, throwOnError: false, strict: "ignore", output: "html" });
 }
 
 export function MathText({ text }: { text: unknown }) {
   const parts = useMemo(() => {
-    const s = delimitarLatexSolto(text == null ? "" : String(text));
+    const comLatexSolto = delimitarLatexSolto(text == null ? "" : String(text));
+    // Fórmulas em ASCII no texto normal (fora de $…$) passam a \(…\).
+    const s = comLatexSolto.split(MATH).map((p, i) => (i % 2 === 0 ? envolverMatematicaAscii(p) : p)).join("");
     return s.split(MATH).map((part, i) => {
       if (i % 2 === 0) return { kind: "text" as const, value: part };
       if (part.startsWith("$$")) return { kind: "math" as const, html: render(part.slice(2, -2), true) };

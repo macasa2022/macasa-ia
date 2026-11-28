@@ -1,7 +1,7 @@
 import { Fragment, useMemo } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import { asciiParaLatex, envolverMatematicaAscii } from "@/lib/matematica-ascii";
+import { asciiParaLatex, corrigirDolaresSoltos, envolverMatematicaAscii } from "@/lib/matematica-ascii";
 
 // Mostra texto da IA com as fórmulas LaTeX já formatadas (KaTeX).
 // Reconhece: $$…$$ e \[…\] (em bloco), $…$ e \(…\) (na linha), LaTeX solto sem $ (ver delimitarLatexSolto)
@@ -34,9 +34,10 @@ function render(tex: string, displayMode: boolean): string {
 
 export function MathText({ text }: { text: unknown }) {
   const parts = useMemo(() => {
-    const comLatexSolto = delimitarLatexSolto(text == null ? "" : String(text));
-    // Fórmulas em ASCII no texto normal (fora de $…$) passam a \(…\).
-    const s = comLatexSolto.split(MATH).map((p, i) => (i % 2 === 0 ? envolverMatematicaAscii(p) : p)).join("");
+    // 1) $ esquecidos; 2) fórmulas ASCII/LaTeX no texto normal passam a \(…\); 3) LaTeX solto que sobrar.
+    const base = corrigirDolaresSoltos(text == null ? "" : String(text));
+    const comAscii = base.split(MATH).map((p, i) => (i % 2 === 0 ? envolverMatematicaAscii(p) : p)).join("");
+    const s = delimitarLatexSolto(comAscii);
     return s.split(MATH).map((part, i) => {
       if (i % 2 === 0) return { kind: "text" as const, value: part };
       if (part.startsWith("$$")) return { kind: "math" as const, html: render(part.slice(2, -2), true) };

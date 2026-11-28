@@ -10,7 +10,8 @@ export const STUDY_PLAN_MAX_TOKENS = 3000;
 // a repetir "\text{". As unidades ficam fora do LaTeX, em texto normal.
 export const MATH_RULE = "\n\nFÓRMULAS: escreve as fórmulas e as variáveis em LaTeX entre $...$ e as unidades fora, em texto normal. " +
   "Exemplos: $v_0 = 0$ m/s; $a = \\frac{v - v_0}{t} = 4$ m/s²; $x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$; $\\Delta = b^2 - 4ac$. " +
-  "Usa sempre \\frac, \\sqrt, \\pm, \\times e \\Delta (nunca sqrt(, +/- nem *). Não uses $ para mais nada. " +
+  "Os símbolos são sempre comandos LaTeX: ± é \\pm, a raiz é \\sqrt{...}, × é \\times, a fração é \\frac{...}{...}, Δ é \\Delta, o quadrado é ^2. " +
+  "Cada fórmula começa e acaba com $. Não uses $ para mais nada. " +
   "Dentro do JSON, escapa as barras invertidas (\\\\frac).";
 
 // Opções de geração para respostas em JSON (Resolver, plano de estudo): temperatura baixa e

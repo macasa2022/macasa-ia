@@ -8,7 +8,7 @@ estudo e histórico. Site: [logicpathways.online](https://logicpathways.online).
 
 - **Frontend:** React 18 + Vite + TypeScript + Tailwind + shadcn/ui
 - **Backend:** Supabase (Postgres, Auth, Edge Functions em Deno), local no Docker
-- **IA:** Ollama local (`gemma4:e4b`); Claude (Opus/Fable) como alternativa para comparar
+- **IA:** Ollama local (`gemma4:e2b`); Claude (Opus/Fable) como alternativa para comparar
   respostas (`AI_PROVIDER=anthropic`)
 - **Emails:** consola (local), SMTP/Gmail ou Resend
 - **Pagamentos:** Stripe (cartão e MB WAY) — opcional em local

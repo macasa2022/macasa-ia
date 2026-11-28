@@ -41,3 +41,6 @@ supabase/.branches/
 e2e-relatorio/
 test-results/
 playwright-report/
+
+# Relatórios da avaliação de modelos (npm run avaliar:modelos)
+relatorios-modelos/

@@ -6,7 +6,7 @@ O Claude (Opus ou Fable) pode ser ligado só para comparar respostas.
 ## 0. Pré-requisitos
 
 - **Node/npm** e **Docker Desktop** aberto (baleia a verde). O Supabase CLI corre via `npx supabase`.
-- **Ollama** aberto, com o modelo instalado (`ollama list` deve mostrar `gemma4:e4b`).
+- **Ollama** aberto, com o modelo instalado (`ollama list` deve mostrar `gemma4:e2b`; se não, `ollama pull gemma4:e2b`).
 
 O MACASA usa portas próprias (família **5432x**), por isso pode correr ao mesmo tempo que o
 Respondo (5542x) e o METAMORFOSE (5532x):
@@ -84,7 +84,24 @@ ANTHROPIC_MODEL=claude-opus-5-5      # ou claude-fable-5-2
 Reinicia `npx supabase functions serve` (Ctrl+C e volta a correr). Para voltar ao Ollama:
 `AI_PROVIDER=ollama`. Atenção: o Claude é pago por utilização.
 
-## 6. Stripe (opcional) — Premium por fatura mensal (cartão ou MB WAY)
+## 6. Comparar modelos de IA (um só comando)
+
+Com o Ollama aberto (não é preciso o Supabase nem o site):
+
+```powershell
+npm run avaliar:modelos
+```
+
+Testa **todos os modelos instalados** (exceto embeddings) com os mesmos prompts, limites e fluxo da
+aplicação: Resolver em 4 passos (Matemática, Física e exercício por foto) e Tutor. Mede a carga, a parte
+na GPU, o tempo e os tokens/s de cada passo, se o JSON é válido, se a resposta está certa, cortes,
+passos acima do limite de 400 s, sinais de PT-PT vs PT-BR e fórmulas estragadas.
+O relatório fica em `relatorios-modelos\<data>.md` (fora do git), com as respostas completas.
+
+Opções: `npm run avaliar:modelos -- --modelos gemma4:e2b,qwen3.5:4b-q4_K_M` (só esses), `-- --pensar ambos` (cada modelo com o modo pensar desligado e ligado) e
+`-- --claude` (inclui o Claude do `.env`; é pago). Com modelos grandes numa GPU de 4 GB pode demorar.
+
+## 7. Stripe (opcional) — Premium por fatura mensal (cartão ou MB WAY)
 
 Como funciona: ao clicar em «Começar Premium» abre-se uma janela com a fatura do Stripe,
 onde o aluno paga com **cartão ou MB WAY**. Todos os meses o Stripe emite e envia por email
@@ -115,7 +132,7 @@ Em modo de teste o Stripe não envia emails reais aos clientes.
 |---|---|
 | `AI_PROVIDER` | `ollama` (omissão) ou `anthropic` |
 | `OLLAMA_URL` | Por omissão `http://host.docker.internal:11434` (o teu PC visto de dentro do Docker) |
-| `OLLAMA_MODEL` | Por omissão `gemma4:e4b` (lê texto e imagens) |
+| `OLLAMA_MODEL` | Por omissão `gemma4:e2b` (lê texto e imagens; escolhido pela avaliação de 28 nov: ~10× mais rápido que o e4b numa GPU de 4 GB) |
 | `OLLAMA_NUM_CTX` | Janela de contexto, por omissão 8192 |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Só com `AI_PROVIDER=anthropic` |
 | `EMAIL_PROVIDER` | `console` (local), `smtp` (Gmail) ou `resend` |

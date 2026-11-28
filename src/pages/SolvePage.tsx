@@ -416,9 +416,17 @@ export default function SolvePage() {
                       ? sol.raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim()
                       : "";
                     if (displayText) {
+                      // Resposta em JSON que não foi possível ler (cortada): não mostrar código ao aluno.
+                      const pareceJson = /^[[{]/.test(displayText);
                       return (
                         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl border border-border/50 shadow-card p-4">
-                          <p className="text-sm whitespace-pre-wrap"><MathText text={displayText} /></p>
+                          {pareceJson ? (
+                            <p className="text-sm text-muted-foreground">
+                              A explicação passo a passo veio incompleta. Carrega em «Analisar Exercício» para tentar outra vez.
+                            </p>
+                          ) : (
+                            <p className="text-sm whitespace-pre-wrap"><MathText text={displayText} /></p>
+                          )}
                         </motion.div>
                       );
                     }

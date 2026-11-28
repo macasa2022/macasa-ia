@@ -4,6 +4,7 @@
  *   npm run avaliar:modelos                      → todos os modelos do Ollama (exceto embeddings)
  *   npm run avaliar:modelos -- --modelos gemma4:e2b,qwen3.5:4b-q4_K_M
  *   npm run avaliar:modelos -- --claude          → inclui o Claude (ANTHROPIC_* do .env; é pago)
+ *   npm run avaliar:modelos -- --repeticoes 3    → repete cada exercício 3 vezes (apanha falhas ocasionais)
  *   npm run avaliar:modelos -- --pensar ambos    → cada modelo com o modo "pensar" desligado E ligado
  *                                                  (sim | nao | ambos; por omissão o OLLAMA_THINK do .env)
  *
@@ -15,9 +16,9 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  CHAT_MAX_TOKENS, SOLVE_MAX_TOKENS, chatSystemPrompt, solveSystemPrompt,
+  CHAT_MAX_TOKENS, JSON_GEN_OPTIONS, RETRY_RULE, SOLVE_MAX_TOKENS, chatSystemPrompt, solveSystemPrompt,
 } from "../supabase/functions/_shared/prompts.ts";
-import { cleanPractice, parseAiJson } from "../supabase/functions/_shared/ai-json.ts";
+import { cleanPractice, parseAiJson, ptPtFix } from "../supabase/functions/_shared/ai-json.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const LIMITE_APP_S = 400; // limite por pedido das Edge Functions locais (Supabase CLI)
@@ -40,6 +41,7 @@ const THINK = (ENV.OLLAMA_THINK || "false").toLowerCase() === "true";
 const args = process.argv.slice(2);
 const arg = (nome: string) => { const i = args.indexOf(nome); return i >= 0 ? args[i + 1] : undefined; };
 const COM_CLAUDE = args.includes("--claude");
+const REPETICOES = Math.max(1, Math.min(10, Number(arg("--repeticoes") || 1) || 1));
 const PENSAR_ARG = (arg("--pensar") || "").toLowerCase();
 const MODOS_PENSAR: boolean[] = PENSAR_ARG === "ambos" ? [false, true] : PENSAR_ARG === "sim" ? [true] : PENSAR_ARG === "nao" || PENSAR_ARG === "não" ? [false] : [THINK];
 const DESCRICAO_PENSAR = MODOS_PENSAR.length === 2 ? "desligado e ligado (comparação)" : MODOS_PENSAR[0] ? "ligado" : "desligado";
@@ -78,13 +80,19 @@ function contarMarcas(texto: string, marcas: string[]) {
 }
 function latexEstragado(texto: string) {
   // restos típicos de barras não escapadas: tabulação, form feed, backspace, ou "ext{" / "rac{" sem barra
-  return /[\t\f\b]/.test(texto) || /(^|[^\\a-z])(ext|rac|imes|eq)\{/.test(texto);
+  return /[\t\f\b]/.test(texto) || /(^|[^\\a-z])(ext|rac|imes|eq)\{/.test(texto) || temCiclo(texto) ||
+    /sqrt\(|\+\/-/.test(texto); // fórmulas em texto simples em vez de LaTeX
+}
+/** Ciclo: o mesmo pedaço curto repetido muitas vezes seguidas (ex.: "\text{ \text{ \text{"). */
+function temCiclo(texto: string) {
+  return /(.{2,20}?)\1{8,}/s.test(texto);
 }
 
 // ---------- chamadas ----------
 type Medida = {
   passo: string; segundos: number; tokens?: number; tokS?: number; promptTokens?: number;
   fim?: string; jsonValido?: boolean; primeiroTokenS?: number; erro?: string; texto: string; pensamentoCar?: number;
+  novaTentativa?: boolean; jsonValido1?: boolean;
 };
 
 // think: undefined = modelo sem modo pensar (não se envia o parâmetro)
@@ -95,7 +103,7 @@ async function ollamaChat(modelo: string, think: boolean | undefined, system: st
     body: JSON.stringify({
       model: modelo, stream: false, ...(json ? { format: "json" } : {}),
       ...(think !== undefined ? { think } : {}), keep_alive: "10m",
-      options: { num_ctx: NUM_CTX, num_predict: SOLVE_MAX_TOKENS },
+      options: { num_ctx: NUM_CTX, num_predict: SOLVE_MAX_TOKENS, ...(json ? JSON_GEN_OPTIONS : {}) },
       messages: [{ role: "system", content: system }, { role: "user", content: user, ...(imagemB64 ? { images: [imagemB64] } : {}) }],
     }),
   });
@@ -181,7 +189,7 @@ function contextoDaAnalise(a: any, enunciado: string) {
 }
 
 // ---------- execução por modelo ----------
-type ResultadoCaso = { caso: string; titulo: string; passos: Medida[]; totalS: number; certo: boolean; criterio: string; quizRejeitado: boolean };
+type ResultadoCaso = { caso: string; titulo: string; passos: Medida[]; totalS: number; certo: boolean; criterio: string; quizRejeitado: boolean; ciclo: boolean };
 type Resultado = {
   modelo: string; fornecedor: "ollama" | "anthropic"; capacidades: string[]; gpuPct?: number; tamanhoGB?: number;
   cargaS?: number; casos: ResultadoCaso[]; tutor?: Medida; erro?: string;
@@ -199,14 +207,25 @@ async function descarregarTodos() {
   }
 }
 
-async function avaliarCaso(caso: Caso, chamar: (system: string, user: string, img?: string) => Promise<Medida>): Promise<ResultadoCaso> {
+async function avaliarCaso(caso: Caso, chamar: (system: string, user: string, img?: string) => Promise<Medida>, rep = 1): Promise<ResultadoCaso> {
   const img = caso.imagem ? readFileSync(caso.imagem).toString("base64") : undefined;
   const passos: Medida[] = [];
   const passo = async (nome: string, modo: string, user: string, comImagem = false) => {
     process.stdout.write(`      · ${nome}… `);
-    const m = await chamar(solveSystemPrompt(modo, caso.ano, caso.disciplina), user, comImagem ? img : undefined);
+    // Igual à app (jsonComNovaTentativa): se o JSON vier inválido, nova tentativa com a RETRY_RULE.
+    const sys = solveSystemPrompt(modo, caso.ano, caso.disciplina);
+    const m1 = await chamar(sys, user, comImagem ? img : undefined);
+    let m = m1;
+    if (!m1.erro && m1.jsonValido === false) {
+      const m2 = await chamar(sys + RETRY_RULE, user, comImagem ? img : undefined);
+      m = { ...m2, segundos: m1.segundos + m2.segundos, tokens: (m1.tokens || 0) + (m2.tokens || 0), novaTentativa: true, jsonValido1: false,
+        texto: m2.texto, pensamentoCar: (m1.pensamentoCar || 0) + (m2.pensamentoCar || 0) };
+      m.erro = m2.erro;
+      (m as any).texto1 = m1.texto;
+    }
+    if (m.jsonValido) m.texto = JSON.stringify(ptPtFix(parseAiJson(m.texto))); // o que o aluno vê (com a correção PT-PT)
     m.passo = nome; passos.push(m);
-    console.log(m.erro ? `ERRO ${m.erro.slice(0, 120)}` : `${m.segundos.toFixed(1)} s, ${m.tokens ?? "?"} tokens${m.tokS ? `, ${m.tokS.toFixed(1)} tok/s` : ""}${m.fim === "length" ? " (CORTADO no limite de tokens)" : ""}`);
+    console.log(m.erro ? `ERRO ${m.erro.slice(0, 120)}` : `${m.segundos.toFixed(1)} s, ${m.tokens ?? "?"} tokens${m.tokS ? `, ${m.tokS.toFixed(1)} tok/s` : ""}${m.fim === "length" ? " (CORTADO no limite de tokens)" : ""}${m.novaTentativa ? ` · JSON inválido à 1.ª → nova tentativa ${m.jsonValido ? "resolveu" : "FALHOU"}` : ""}`);
     return m;
   };
   const analise = await passo("Análise", "solve_analyze", caso.enunciado || "Analisa este exercício da imagem.", true);
@@ -215,7 +234,8 @@ async function avaliarCaso(caso: Caso, chamar: (system: string, user: string, im
   const resolucao = await passo("Resolução", "solve_resolve", ctx);
   const pratica = await passo("Prática", "solve_practice", ctx);
   return {
-    caso: caso.id, titulo: caso.titulo, passos, criterio: caso.criterio,
+    caso: caso.id, titulo: REPETICOES > 1 ? `${caso.titulo} (#${rep})` : caso.titulo, passos, criterio: caso.criterio,
+    ciclo: passos.some((p) => temCiclo(p.texto) || temCiclo(String((p as any).texto1 || ""))),
     quizRejeitado: cleanPractice(parseAiJson(pratica.texto)),
     totalS: passos.reduce((s, p) => s + p.segundos, 0),
     certo: caso.certo(normalizar(JSON.stringify(parseAiJson(resolucao.texto)) + " " + resolucao.texto)),
@@ -243,8 +263,10 @@ async function avaliarOllama(modelo: string, pensar: boolean): Promise<Resultado
 
     for (const caso of CASOS) {
       if (caso.imagem && !res.capacidades.includes("vision")) { console.log(`   ${caso.titulo}: ignorado (modelo sem vision)`); continue; }
-      console.log(`   ${caso.titulo}`);
-      res.casos.push(await avaliarCaso(caso, (s, u, img) => ollamaChat(modelo, think, s, u, img)));
+      for (let rep = 1; rep <= REPETICOES; rep++) {
+        console.log(`   ${caso.titulo}${REPETICOES > 1 ? ` (#${rep})` : ""}`);
+        res.casos.push(await avaliarCaso(caso, (s, u, img) => ollamaChat(modelo, think, s, u, img), rep));
+      }
     }
     process.stdout.write("   Tutor (streaming)… ");
     res.tutor = await ollamaTutor(modelo, think, chatSystemPrompt("10º ano", "Física"), PERGUNTA_TUTOR);
@@ -261,8 +283,10 @@ async function avaliarClaude(): Promise<Resultado> {
   const res: Resultado = { modelo, fornecedor: "anthropic", capacidades: ["vision"], casos: [] };
   if (!ENV.ANTHROPIC_API_KEY || ENV.ANTHROPIC_API_KEY.startsWith("sk-ant-...")) { res.erro = "ANTHROPIC_API_KEY em falta no .env"; return res; }
   for (const caso of CASOS) {
-    console.log(`   ${caso.titulo}`);
-    res.casos.push(await avaliarCaso(caso, (s, u, img) => claudeChat(s, u, img)));
+    for (let rep = 1; rep <= REPETICOES; rep++) {
+      console.log(`   ${caso.titulo}${REPETICOES > 1 ? ` (#${rep})` : ""}`);
+      res.casos.push(await avaliarCaso(caso, (s, u, img) => claudeChat(s, u, img), rep));
+    }
   }
   process.stdout.write("   Tutor… ");
   const t = await claudeChat(chatSystemPrompt("10º ano", "Física"), PERGUNTA_TUTOR, undefined, CHAT_MAX_TOKENS, false);
@@ -279,10 +303,10 @@ function textoTodo(r: Resultado) {
 function relatorio(resultados: Resultado[], inicio: Date) {
   const L: string[] = [];
   L.push(`# Avaliação de modelos — MACASA IA`, "");
-  L.push(`${inicio.toLocaleString("pt-PT")} · contexto ${NUM_CTX} tokens · modo pensar ${DESCRICAO_PENSAR} · limite por passo na app: ${LIMITE_APP_S} s`, "");
+  L.push(`${inicio.toLocaleString("pt-PT")} · contexto ${NUM_CTX} tokens · modo pensar ${DESCRICAO_PENSAR} · ${REPETICOES} repetição(ões) por exercício · limite por passo na app: ${LIMITE_APP_S} s`, "");
   L.push("## Resumo", "");
-  L.push("| Modelo | Na GPU | Carga (s) | " + CASOS.map((c) => `${c.id} total (s)`).join(" | ") + " | Tutor 1.º token / total (s) | tok/s médio | JSON válido | Respostas certas | Quiz rejeitado | Passos > 400 s | Cortes por tokens | PT-PT / PT-BR | LaTeX estragado |");
-  L.push("|---|---|---|" + CASOS.map(() => "---").join("|") + "|---|---|---|---|---|---|---|---|---|");
+  L.push("| Modelo | Na GPU | Carga (s) | " + CASOS.map((c) => `${c.id} total (s)`).join(" | ") + " | Tutor 1.º token / total (s) | tok/s médio | JSON válido | Respostas certas | Quiz rejeitado | JSON inválido à 1.ª (resolvido) | Ciclos | Passos > 400 s | Cortes por tokens | PT-PT / PT-BR | LaTeX estragado |");
+  L.push("|---|---|---|" + CASOS.map(() => "---").join("|") + "|---|---|---|---|---|---|---|---|---|---|---|");
   for (const r of resultados) {
     if (r.erro && !r.casos.length) { L.push(`| ${r.modelo} | ERRO: ${r.erro.replace(/\|/g, "/")} |`); continue; }
     const passos = r.casos.flatMap((c) => c.passos);
@@ -295,17 +319,19 @@ function relatorio(resultados: Resultado[], inicio: Date) {
       ` | ${f1(r.tutor?.primeiroTokenS)} / ${f1(r.tutor?.segundos)} | ${tps.length ? f1(tps.reduce((a, b) => a + b, 0) / tps.length) : "—"}` +
       ` | ${jsonOk}/${passos.length} | ${r.casos.filter((c) => c.certo).length}/${r.casos.length}` +
       ` | ${r.casos.filter((c) => c.quizRejeitado).length}/${r.casos.length}` +
+      ` | ${passos.filter((p) => p.novaTentativa).length} (${passos.filter((p) => p.novaTentativa && p.jsonValido).length})` +
+      ` | ${r.casos.filter((c) => c.ciclo).length}/${r.casos.length}` +
       ` | ${passos.filter((p) => p.segundos > LIMITE_APP_S).length} | ${passos.filter((p) => p.fim === "length" || p.fim === "max_tokens").length}` +
       ` | ${pt.length} / ${br.length}${br.length ? ` (${br.join(", ")})` : ""} | ${latexEstragado(texto) ? "sim" : "não"} |`);
   }
-  L.push("", "Leitura: *Na GPU* abaixo de 100% significa que parte do modelo corre no processador (mais lento). *Passos > 400 s* seriam cortados na aplicação. *PT-PT / PT-BR* conta expressões típicas de cada variante. *Quiz rejeitado*: a aplicação esconde-o por estar incoerente.", "");
+  L.push("", "Leitura: *Na GPU* abaixo de 100% significa que parte do modelo corre no processador (mais lento). *Passos > 400 s* seriam cortados na aplicação. *PT-PT / PT-BR* conta expressões típicas de cada variante. *Quiz rejeitado*: a aplicação esconde-o por estar incoerente. *JSON inválido à 1.ª*: a app repete o pedido (entre parênteses, quantas vezes isso resolveu). *Ciclos*: exercícios em que o modelo repetiu o mesmo pedaço vezes sem conta.", "");
 
   for (const r of resultados) {
     L.push(`## ${r.modelo}`, "", `Capacidades: ${r.capacidades.join(", ") || "?"}${r.erro ? ` · Erro: ${r.erro}` : ""}`, "");
     for (const c of r.casos) {
       L.push(`### ${c.titulo} — ${c.certo ? "✅ certo" : "❌ não encontrado"} (${c.criterio}) · ${f1(c.totalS)} s${c.quizRejeitado ? " · quiz rejeitado (incoerente)" : ""}`, "");
       L.push("| Passo | Tempo (s) | Tokens | tok/s | Prompt | Pensamento (car.) | Fim | JSON |", "|---|---|---|---|---|---|---|---|");
-      for (const p of c.passos) L.push(`| ${p.passo} | ${f1(p.segundos)} | ${p.tokens ?? "—"} | ${f1(p.tokS)} | ${p.promptTokens ?? "—"} | ${p.pensamentoCar || "—"} | ${p.fim ?? (p.erro ? "erro" : "—")} | ${p.jsonValido ? "válido" : "inválido"} |`);
+      for (const p of c.passos) L.push(`| ${p.passo}${p.novaTentativa ? " (2 tentativas)" : ""} | ${f1(p.segundos)} | ${p.tokens ?? "—"} | ${f1(p.tokS)} | ${p.promptTokens ?? "—"} | ${p.pensamentoCar || "—"} | ${p.fim ?? (p.erro ? "erro" : "—")} | ${p.jsonValido ? "válido" : "inválido"} |`);
       L.push("");
       for (const p of c.passos) {
         const corpo = p.erro ? `ERRO: ${p.erro}` : (() => { const j = parseAiJson(p.texto); return j && !j.raw ? JSON.stringify(j, null, 2) : p.texto; })();

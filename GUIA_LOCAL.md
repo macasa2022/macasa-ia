@@ -98,7 +98,7 @@ na GPU, o tempo e os tokens/s de cada passo, se o JSON é válido, se a resposta
 passos acima do limite de 400 s, sinais de PT-PT vs PT-BR e fórmulas estragadas.
 O relatório fica em `relatorios-modelos\<data>.md` (fora do git), com as respostas completas.
 
-Opções: `npm run avaliar:modelos -- --modelos gemma4:e2b,qwen3.5:4b-q4_K_M` (só esses), `-- --pensar ambos` (cada modelo com o modo pensar desligado e ligado) e
+Opções: `npm run avaliar:modelos -- --modelos gemma4:e2b,qwen3.5:4b-q4_K_M` (só esses), `-- --repeticoes 3` (repete cada exercício para apanhar falhas ocasionais), `-- --pensar ambos` (cada modelo com o modo pensar desligado e ligado) e
 `-- --claude` (inclui o Claude do `.env`; é pago). Com modelos grandes numa GPU de 4 GB pode demorar.
 
 ## 7. Stripe (opcional) — Premium por fatura mensal (cartão ou MB WAY)

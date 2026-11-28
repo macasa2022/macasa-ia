@@ -6,10 +6,20 @@ export const CHAT_MAX_TOKENS = 2048;
 export const STUDY_PLAN_MAX_TOKENS = 3000;
 
 // Regra comum para as fórmulas (o frontend mostra-as com KaTeX).
-export const MATH_RULE = "\n\nFÓRMULAS: escreve fórmulas, variáveis com índices e unidades em LaTeX entre $...$ " +
-  "(ex.: $v_0 = 0\\,\\text{m/s}$, $a = \\frac{v - v_0}{t}$). Não uses $ para mais nada. " +
-  "Usa comandos LaTeX para os símbolos ($\\pm$, $\\sqrt{}$, $\\times$, $\\Delta$); nunca escrevas palavras dentro de \\text{} para os substituir. " +
+// Nota: os exemplos NÃO usam \text — um modelo pequeno imita os exemplos e chegou a entrar em ciclo
+// a repetir "\text{". As unidades ficam fora do LaTeX, em texto normal.
+export const MATH_RULE = "\n\nFÓRMULAS: escreve as fórmulas e as variáveis em LaTeX entre $...$ e as unidades fora, em texto normal. " +
+  "Exemplos: $v_0 = 0$ m/s; $a = \\frac{v - v_0}{t} = 4$ m/s²; $x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$; $\\Delta = b^2 - 4ac$. " +
+  "Usa sempre \\frac, \\sqrt, \\pm, \\times e \\Delta (nunca sqrt(, +/- nem *). Não uses $ para mais nada. " +
   "Dentro do JSON, escapa as barras invertidas (\\\\frac).";
+
+// Opções de geração para respostas em JSON (Resolver, plano de estudo): temperatura baixa e
+// penalização de repetições, para respostas estáveis e sem ciclos. O Tutor usa as do modelo.
+export const JSON_GEN_OPTIONS = { temperature: 0.3, repeat_penalty: 1.15, repeat_last_n: 128 };
+
+// Acrescentado ao prompt na nova tentativa, quando a primeira resposta não foi JSON válido.
+export const RETRY_RULE = "\n\nATENÇÃO: a tua resposta anterior veio incompleta ou repetitiva. Responde com JSON curto e " +
+  "válido, sem repetir palavras nem comandos, e fecha todas as chavetas.";
 
 // Português de Portugal em todos os modos (os modelos pequenos tendem para o português do Brasil).
 export const LANG_RULE = "\n\nLÍNGUA: escreve SEMPRE em português de Portugal (norma europeia), nunca do Brasil. " +

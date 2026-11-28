@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { AIError, completeText, streamOpenAICompatible } from "../_shared/ai.ts";
-import { CHAT_MAX_TOKENS, LANG_RULE, SOLVE_MAX_TOKENS, STUDY_PLAN_MAX_TOKENS, SYSTEM_PROMPTS, chatSystemPrompt, solveSystemPrompt } from "../_shared/prompts.ts";
-import { cleanPractice, parseAiJson } from "../_shared/ai-json.ts";
+import { CHAT_MAX_TOKENS, LANG_RULE, RETRY_RULE, SOLVE_MAX_TOKENS, STUDY_PLAN_MAX_TOKENS, SYSTEM_PROMPTS, chatSystemPrompt, solveSystemPrompt } from "../_shared/prompts.ts";
+import { cleanPractice, jsonComNovaTentativa } from "../_shared/ai-json.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -186,16 +186,15 @@ serve(async (req) => {
         `Disciplinas permitidas: ${allowed.join(", ")}. ` +
         `Objetivo: ${prof?.objetivo_estudo || "não indicado"}. Frequência de estudo: ${prof?.frequencia_estudo || "não indicada"}.`;
 
-      let content: string;
+      let plan: any;
       try {
-        content = await completeText([
-          { role: "system", content: systemPrompt },
+        ({ parsed: plan } = await jsonComNovaTentativa((t) => completeText([
+          { role: "system", content: systemPrompt + (t > 1 ? RETRY_RULE : "") },
           { role: "user", content: `Histórico recente (mais recente primeiro):\n${history}` },
-        ], STUDY_PLAN_MAX_TOKENS, true);
+        ], STUDY_PLAN_MAX_TOKENS, true)));
       } catch (err) {
         return aiErrorResponse(err);
       }
-      const plan = parseAiJson(content);
       if (!Array.isArray(plan?.dias)) return jsonResponse({ error: "Não foi possível gerar o plano. Tenta novamente." }, 502);
 
       // Normalizar: ids únicos, só disciplinas permitidas
@@ -247,19 +246,17 @@ serve(async (req) => {
         userContent = exerciseText;
       }
 
-      const aiMessages = [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ];
-
-      let content: string;
+      let parsed: any;
       try {
-        content = (await completeText(aiMessages as any, SOLVE_MAX_TOKENS, true)) || "{}";
+        const r = await jsonComNovaTentativa(async (t) => (await completeText([
+          { role: "system", content: systemPrompt + (t > 1 ? RETRY_RULE : "") },
+          { role: "user", content: userContent },
+        ] as any, SOLVE_MAX_TOKENS, true)) || "{}");
+        parsed = r.parsed;
+        if (r.tentativas > 1) console.warn(`[IA] ${mode}: JSON inválido à 1.ª; nova tentativa ${parsed?.raw ? "também falhou" : "resolveu"}`);
       } catch (err) {
         return aiErrorResponse(err);
       }
-
-      const parsed = parseAiJson(content);
       if (mode === "solve_practice" && cleanPractice(parsed)) console.warn("[IA] quiz incoerente removido");
 
       if (enrolledSubject && parsed?.fora_da_disciplina) {

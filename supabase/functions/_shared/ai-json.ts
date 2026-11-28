@@ -62,3 +62,39 @@ export function cleanPractice(p: any): boolean {
   if (invalido) delete p.quiz;
   return invalido;
 }
+
+// Termos do português do Brasil que um modelo pequeno ainda deixa escapar, com equivalente seguro.
+const PT_BR_PARA_PT: [RegExp, string][] = [
+  [/f[óo]rmula de (bh|b)[áa]skara/gi, "fórmula resolvente"],
+  [/\b(de |por |pela )?bh[áa]skara\b/gi, "$1fórmula resolvente"],
+  [/\btrin[ôo]mio/g, "trinómio"], [/\bpolin[ôo]mio/g, "polinómio"], [/\bbin[ôo]mio/g, "binómio"], [/\bmon[ôo]mio/g, "monómio"],
+  [/\btrens\b/g, "comboios"], [/\btrem\b/g, "comboio"], [/\bTrem\b/g, "Comboio"],
+  [/\b[ôo]nibus\b/g, "autocarro"], [/\becon[ôo]mic/g, "económic"], [/\bfatora[çc][ãa]o\b/g, "fatorização"],
+];
+
+/** Corrige termos PT-BR conhecidos em todas as strings de um objeto (respostas em JSON da IA). */
+export function ptPtFix<T>(v: T): T {
+  if (typeof v === "string") return PT_BR_PARA_PT.reduce((s, [re, por]) => s.replace(re, por), v as string) as T;
+  if (Array.isArray(v)) return v.map(ptPtFix) as T;
+  if (v && typeof v === "object") {
+    for (const k of Object.keys(v as object)) (v as any)[k] = ptPtFix((v as any)[k]);
+  }
+  return v;
+}
+
+/**
+ * Pede JSON à IA e, se a resposta não for JSON válido (cortada, em ciclo…), tenta uma segunda vez.
+ * gerar(tentativa) recebe 1 ou 2; na 2.ª o chamador acrescenta a RETRY_RULE ao prompt.
+ */
+export async function jsonComNovaTentativa(gerar: (tentativa: number) => Promise<string>) {
+  let content = await gerar(1);
+  let parsed = parseAiJson(content);
+  let tentativas = 1;
+  if (!parsed || parsed.raw) {
+    tentativas = 2;
+    content = await gerar(2);
+    parsed = parseAiJson(content);
+  }
+  if (parsed && !parsed.raw) ptPtFix(parsed);
+  return { parsed, content, tentativas };
+}

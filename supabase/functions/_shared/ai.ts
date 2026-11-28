@@ -19,6 +19,7 @@
 //                   (o raciocínio escondido gasta tokens e torna o Resolver muito lento)
 
 import * as anthropic from "./anthropic.ts";
+import { JSON_GEN_OPTIONS } from "./prompts.ts";
 
 export const DEFAULT_MODEL = "gemma4:e2b";
 
@@ -108,7 +109,7 @@ async function callOllamaOnce(messages: OpenAIMessage[], maxTokens: number, stre
         ...(json ? { format: "json" } : {}),
         ...(withThink ? { think } : {}),
         keep_alive: "30m",
-        options: { num_ctx: numCtx, num_predict: maxTokens },
+        options: { num_ctx: numCtx, num_predict: maxTokens, ...(json ? JSON_GEN_OPTIONS : {}) },
       }),
     });
   let resp: Response;

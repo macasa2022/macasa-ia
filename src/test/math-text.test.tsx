@@ -21,4 +21,23 @@ describe("MathText", () => {
     expect(container.textContent).toContain("9,99 €");
     render(<p><MathText text={null} /></p>);
   });
+
+  it("formata LaTeX escrito sem $ (linha só de matemática)", () => {
+    const { container } = render(<div><MathText text={"\\sqrt{(x - 2)^2} = \\pm\\sqrt{9}\nx - 2 = \\pm3"} /></div>);
+    expect(container.querySelectorAll(".katex").length).toBe(2);
+    expect(container.textContent).not.toContain("\\sqrt");
+    expect(container.textContent).not.toContain("\\pm");
+  });
+
+  it("em texto misturado, formata só os comandos LaTeX e mantém as palavras", () => {
+    const { container } = render(<p><MathText text={"Calculamos a raiz \\sqrt{9} para continuar"} /></p>);
+    expect(container.querySelectorAll(".katex").length).toBe(1);
+    expect(container.textContent).toContain("Calculamos a raiz");
+    expect(container.textContent).toContain("para continuar");
+  });
+
+  it("não mexe em texto sem LaTeX nem em linhas que já têm $", () => {
+    const { container } = render(<p><MathText text={"Preço: 9,99 € e $x = 6$ \\pm"} /></p>);
+    expect(container.querySelectorAll(".katex").length).toBe(1);
+  });
 });

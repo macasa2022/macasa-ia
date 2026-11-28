@@ -4,6 +4,8 @@
  *   npm run avaliar:modelos                      → todos os modelos do Ollama (exceto embeddings)
  *   npm run avaliar:modelos -- --modelos gemma4:e2b,qwen3.5:4b-q4_K_M
  *   npm run avaliar:modelos -- --claude          → inclui o Claude (ANTHROPIC_* do .env; é pago)
+ *   npm run avaliar:modelos -- --pensar ambos    → cada modelo com o modo "pensar" desligado E ligado
+ *                                                  (sim | nao | ambos; por omissão o OLLAMA_THINK do .env)
  *
  * Usa os MESMOS prompts, limites de tokens e fluxo da aplicação (Resolver em 4 passos:
  * análise → estratégia → resolução → prática; Tutor em streaming), medindo cada passo.
@@ -38,6 +40,9 @@ const THINK = (ENV.OLLAMA_THINK || "false").toLowerCase() === "true";
 const args = process.argv.slice(2);
 const arg = (nome: string) => { const i = args.indexOf(nome); return i >= 0 ? args[i + 1] : undefined; };
 const COM_CLAUDE = args.includes("--claude");
+const PENSAR_ARG = (arg("--pensar") || "").toLowerCase();
+const MODOS_PENSAR: boolean[] = PENSAR_ARG === "ambos" ? [false, true] : PENSAR_ARG === "sim" ? [true] : PENSAR_ARG === "nao" || PENSAR_ARG === "não" ? [false] : [THINK];
+const DESCRICAO_PENSAR = MODOS_PENSAR.length === 2 ? "desligado e ligado (comparação)" : MODOS_PENSAR[0] ? "ligado" : "desligado";
 
 // ---------- casos de teste ----------
 type Caso = {
@@ -79,16 +84,17 @@ function latexEstragado(texto: string) {
 // ---------- chamadas ----------
 type Medida = {
   passo: string; segundos: number; tokens?: number; tokS?: number; promptTokens?: number;
-  fim?: string; jsonValido?: boolean; primeiroTokenS?: number; erro?: string; texto: string;
+  fim?: string; jsonValido?: boolean; primeiroTokenS?: number; erro?: string; texto: string; pensamentoCar?: number;
 };
 
-async function ollamaChat(modelo: string, temThinking: boolean, system: string, user: string, imagemB64?: string, json = true): Promise<Medida> {
+// think: undefined = modelo sem modo pensar (não se envia o parâmetro)
+async function ollamaChat(modelo: string, think: boolean | undefined, system: string, user: string, imagemB64?: string, json = true): Promise<Medida> {
   const t0 = performance.now();
   const r = await fetch(`${OLLAMA}/api/chat`, {
     method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({
       model: modelo, stream: false, ...(json ? { format: "json" } : {}),
-      ...(temThinking ? { think: THINK } : {}), keep_alive: "10m",
+      ...(think !== undefined ? { think } : {}), keep_alive: "10m",
       options: { num_ctx: NUM_CTX, num_predict: SOLVE_MAX_TOKENS },
       messages: [{ role: "system", content: system }, { role: "user", content: user, ...(imagemB64 ? { images: [imagemB64] } : {}) }],
     }),
@@ -101,23 +107,23 @@ async function ollamaChat(modelo: string, temThinking: boolean, system: string, 
   return {
     passo: "", segundos, tokens: d.eval_count, promptTokens: d.prompt_eval_count, fim: d.done_reason,
     tokS: d.eval_count && d.eval_duration ? d.eval_count / (d.eval_duration / 1e9) : undefined,
-    jsonValido: json ? !!parsed && !parsed.raw : undefined, texto,
+    jsonValido: json ? !!parsed && !parsed.raw : undefined, texto, pensamentoCar: (d?.message?.thinking || "").length,
   };
 }
 
-async function ollamaTutor(modelo: string, temThinking: boolean, system: string, pergunta: string): Promise<Medida> {
+async function ollamaTutor(modelo: string, think: boolean | undefined, system: string, pergunta: string): Promise<Medida> {
   const t0 = performance.now();
   const r = await fetch(`${OLLAMA}/api/chat`, {
     method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      model: modelo, stream: true, ...(temThinking ? { think: THINK } : {}), keep_alive: "10m",
+      model: modelo, stream: true, ...(think !== undefined ? { think } : {}), keep_alive: "10m",
       options: { num_ctx: NUM_CTX, num_predict: CHAT_MAX_TOKENS },
       messages: [{ role: "system", content: system }, { role: "user", content: pergunta }],
     }),
   });
   if (!r.ok || !r.body) return { passo: "Tutor", segundos: (performance.now() - t0) / 1000, erro: `${r.status} ${await r.text()}`, texto: "" };
   const reader = r.body.getReader(); const dec = new TextDecoder();
-  let buf = "", texto = "", primeiro: number | undefined, fim: any = {};
+  let buf = "", texto = "", pensamento = 0, primeiro: number | undefined, fim: any = {};
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -128,12 +134,13 @@ async function ollamaTutor(modelo: string, temThinking: boolean, system: string,
       if (!linha) continue;
       const c = JSON.parse(linha);
       const parte = c?.message?.content;
+      pensamento += (c?.message?.thinking || "").length;
       if (parte) { if (primeiro === undefined) primeiro = (performance.now() - t0) / 1000; texto += parte; }
       if (c.done) fim = c;
     }
   }
   return {
-    passo: "Tutor", segundos: (performance.now() - t0) / 1000, primeiroTokenS: primeiro, texto,
+    passo: "Tutor", segundos: (performance.now() - t0) / 1000, primeiroTokenS: primeiro, texto, pensamentoCar: pensamento,
     tokens: fim.eval_count, promptTokens: fim.prompt_eval_count, fim: fim.done_reason,
     tokS: fim.eval_count && fim.eval_duration ? fim.eval_count / (fim.eval_duration / 1e9) : undefined,
   };
@@ -215,9 +222,13 @@ async function avaliarCaso(caso: Caso, chamar: (system: string, user: string, im
   };
 }
 
-async function avaliarOllama(modelo: string): Promise<Resultado> {
-  const res: Resultado = { modelo, fornecedor: "ollama", capacidades: await capacidades(modelo), casos: [] };
-  const temThinking = res.capacidades.includes("thinking");
+async function avaliarOllama(modelo: string, pensar: boolean): Promise<Resultado | null> {
+  const caps = await capacidades(modelo);
+  const temThinking = caps.includes("thinking");
+  if (pensar && !temThinking) { console.log(`   (sem modo pensar: ignorado com --pensar)`); return null; }
+  const think = temThinking ? pensar : undefined;
+  const nome = temThinking && MODOS_PENSAR.length === 2 ? `${modelo} · pensar ${pensar ? "ligado" : "desligado"}` : modelo;
+  const res: Resultado = { modelo: nome, fornecedor: "ollama", capacidades: caps, casos: [] };
   try {
     await descarregarTodos();
     process.stdout.write("   carregar modelo… ");
@@ -233,10 +244,10 @@ async function avaliarOllama(modelo: string): Promise<Resultado> {
     for (const caso of CASOS) {
       if (caso.imagem && !res.capacidades.includes("vision")) { console.log(`   ${caso.titulo}: ignorado (modelo sem vision)`); continue; }
       console.log(`   ${caso.titulo}`);
-      res.casos.push(await avaliarCaso(caso, (s, u, img) => ollamaChat(modelo, temThinking, s, u, img)));
+      res.casos.push(await avaliarCaso(caso, (s, u, img) => ollamaChat(modelo, think, s, u, img)));
     }
     process.stdout.write("   Tutor (streaming)… ");
-    res.tutor = await ollamaTutor(modelo, temThinking, chatSystemPrompt("10º ano", "Física"), PERGUNTA_TUTOR);
+    res.tutor = await ollamaTutor(modelo, think, chatSystemPrompt("10º ano", "Física"), PERGUNTA_TUTOR);
     console.log(res.tutor.erro ? `ERRO ${res.tutor.erro}` : `1.º token ${res.tutor.primeiroTokenS?.toFixed(1)} s, total ${res.tutor.segundos.toFixed(1)} s`);
   } catch (e) {
     res.erro = e instanceof Error ? e.message : String(e);
@@ -268,7 +279,7 @@ function textoTodo(r: Resultado) {
 function relatorio(resultados: Resultado[], inicio: Date) {
   const L: string[] = [];
   L.push(`# Avaliação de modelos — MACASA IA`, "");
-  L.push(`${inicio.toLocaleString("pt-PT")} · contexto ${NUM_CTX} tokens · modo pensar ${THINK ? "ligado" : "desligado"} · limite por passo na app: ${LIMITE_APP_S} s`, "");
+  L.push(`${inicio.toLocaleString("pt-PT")} · contexto ${NUM_CTX} tokens · modo pensar ${DESCRICAO_PENSAR} · limite por passo na app: ${LIMITE_APP_S} s`, "");
   L.push("## Resumo", "");
   L.push("| Modelo | Na GPU | Carga (s) | " + CASOS.map((c) => `${c.id} total (s)`).join(" | ") + " | Tutor 1.º token / total (s) | tok/s médio | JSON válido | Respostas certas | Quiz rejeitado | Passos > 400 s | Cortes por tokens | PT-PT / PT-BR | LaTeX estragado |");
   L.push("|---|---|---|" + CASOS.map(() => "---").join("|") + "|---|---|---|---|---|---|---|---|---|");
@@ -293,8 +304,8 @@ function relatorio(resultados: Resultado[], inicio: Date) {
     L.push(`## ${r.modelo}`, "", `Capacidades: ${r.capacidades.join(", ") || "?"}${r.erro ? ` · Erro: ${r.erro}` : ""}`, "");
     for (const c of r.casos) {
       L.push(`### ${c.titulo} — ${c.certo ? "✅ certo" : "❌ não encontrado"} (${c.criterio}) · ${f1(c.totalS)} s${c.quizRejeitado ? " · quiz rejeitado (incoerente)" : ""}`, "");
-      L.push("| Passo | Tempo (s) | Tokens | tok/s | Prompt | Fim | JSON |", "|---|---|---|---|---|---|---|");
-      for (const p of c.passos) L.push(`| ${p.passo} | ${f1(p.segundos)} | ${p.tokens ?? "—"} | ${f1(p.tokS)} | ${p.promptTokens ?? "—"} | ${p.fim ?? (p.erro ? "erro" : "—")} | ${p.jsonValido ? "válido" : "inválido"} |`);
+      L.push("| Passo | Tempo (s) | Tokens | tok/s | Prompt | Pensamento (car.) | Fim | JSON |", "|---|---|---|---|---|---|---|---|");
+      for (const p of c.passos) L.push(`| ${p.passo} | ${f1(p.segundos)} | ${p.tokens ?? "—"} | ${f1(p.tokS)} | ${p.promptTokens ?? "—"} | ${p.pensamentoCar || "—"} | ${p.fim ?? (p.erro ? "erro" : "—")} | ${p.jsonValido ? "válido" : "inválido"} |`);
       L.push("");
       for (const p of c.passos) {
         const corpo = p.erro ? `ERRO: ${p.erro}` : (() => { const j = parseAiJson(p.texto); return j && !j.raw ? JSON.stringify(j, null, 2) : p.texto; })();
@@ -324,7 +335,7 @@ async function main() {
     process.exit(1);
   }
   console.log(`Modelos a avaliar: ${modelos.join(", ")}${COM_CLAUDE ? " + Claude" : ""}`);
-  console.log(`Contexto ${NUM_CTX} · modo pensar ${THINK ? "ligado" : "desligado"} · isto pode demorar bastante com modelos grandes.\n`);
+  console.log(`Contexto ${NUM_CTX} · modo pensar ${DESCRICAO_PENSAR} · isto pode demorar bastante com modelos grandes.\n`);
 
   const resultados: Resultado[] = [];
   const dir = join(ROOT, "relatorios-modelos");
@@ -335,9 +346,11 @@ async function main() {
     writeFileSync(join(dir, `${nome}.json`), JSON.stringify(resultados, null, 2), "utf8");
   };
   for (const m of modelos) {
-    console.log(`▶ ${m}`);
-    resultados.push(await avaliarOllama(m));
-    gravar(); // grava a cada modelo: se parares a meio, o relatório parcial fica
+    for (const pensar of MODOS_PENSAR) {
+      console.log(`▶ ${m}${MODOS_PENSAR.length === 2 ? ` · pensar ${pensar ? "ligado" : "desligado"}` : ""}`);
+      const r = await avaliarOllama(m, pensar);
+      if (r) { resultados.push(r); gravar(); } // grava a cada modelo: se parares a meio, o relatório parcial fica
+    }
   }
   if (COM_CLAUDE) { console.log(`▶ Claude`); resultados.push(await avaliarClaude()); gravar(); }
   await descarregarTodos();

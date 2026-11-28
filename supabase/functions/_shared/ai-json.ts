@@ -20,7 +20,9 @@ export function fixLatexEscapes(raw: string): string {
     const word = /^[a-zA-Z]+/.exec(raw.slice(i + 1))?.[0] ?? "";
     if ("bfnrtu".includes(next) && next !== "") {
       const isUnicode = next === "u" && /^u[0-9a-fA-F]{4}/.test(raw.slice(i + 1, i + 6));
-      if (!isUnicode && LATEX_ESCAPE_LOOKALIKES.has(word)) { out += "\\\\"; continue; }
+      // também "\textDelta", "\frac12", "\times3"… (comando conhecido colado a mais letras)
+      const pareceLatex = LATEX_ESCAPE_LOOKALIKES.has(word) || /^(?:text|frac|times|theta|beta|tfrac|binom)[A-Za-z]/.test(word);
+      if (!isUnicode && pareceLatex) { out += "\\\\"; continue; }
       if (next !== "u" || isUnicode) { out += ch; continue; } // \n, \t… verdadeiros
     }
     out += "\\\\"; // escape inválido em JSON (\sqrt, \cdot, \alpha…): é LaTeX
